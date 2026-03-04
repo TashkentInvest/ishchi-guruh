@@ -210,100 +210,70 @@ class TransactionController extends Controller
             return view('transactions.summary', $cached);
         }
 
-        // Define payment type categories based on payment_purpose patterns
-        $paymentCategories = [
-            'fine_10_safe_city' => ['pattern' => '%хавфсиз шаҳар%', 'label' => 'Жарима 10% (хавфсиз шаҳар)'],
-            'fine_35_auto' => ['pattern' => '%автоматлаштирилган%', 'label' => 'Жарима 35% (автоматлаштирилган)'],
-            'fine_5_within_year' => ['pattern' => '%5% (1 йил ичида)%', 'label' => 'Жарима 5% (1 йил ичида)'],
-            'fine_10_after_year' => ['pattern' => '%10% (1 йилдан кейин)%', 'label' => 'Жарима 10% (1 йилдан кейин)'],
-            'ad_20' => ['pattern' => '%Реклама учун тўлов 20%', 'label' => 'Реклама учун тўлов 20%'],
-        ];
+        // Categories map to `type` column values (exact match)
+        // type values: "Жарима 10% (хавфсиз шаҳар)", "Жарима 35% (автоматлаштирилган)",
+        // "Жарима 5% (1 йил ичида)", "Жарима 10% (1 йилдан кейин)", "Реклама учун тўлов 20%"
 
-        // Get all districts
-        $districts = Transaction::distinct()
-            ->whereNotNull('district')
-            ->pluck('district')
-            ->sort()
-            ->values();
-
-        // OPTIMIZED: Single query to get all district totals
-        $districtTotals = Transaction::select('district', DB::raw('SUM(credit_amount) / 1000000 as total'))
-            ->whereNotNull('district')
-            ->groupBy('district')
-            ->pluck('total', 'district');
-
-        // OPTIMIZED: Single query to get all category amounts by district
+        // Single batch query: district × type amounts using CASE WHEN on `type` column
         $categoryData = Transaction::select(
             'district',
-            DB::raw('SUM(CASE WHEN payment_purpose LIKE "%хавфсиз шаҳар%" THEN credit_amount ELSE 0 END) / 1000000 as fine_10_safe_city'),
-            DB::raw('SUM(CASE WHEN payment_purpose LIKE "%автоматлаштирилган%" THEN credit_amount ELSE 0 END) / 1000000 as fine_35_auto'),
-            DB::raw('SUM(CASE WHEN payment_purpose LIKE "%5% (1 йил ичида)%" THEN credit_amount ELSE 0 END) / 1000000 as fine_5_within_year'),
-            DB::raw('SUM(CASE WHEN payment_purpose LIKE "%10% (1 йилдан кейин)%" THEN credit_amount ELSE 0 END) / 1000000 as fine_10_after_year'),
-            DB::raw('SUM(CASE WHEN payment_purpose LIKE "%Реклама учун тўлов 20%" THEN credit_amount ELSE 0 END) / 1000000 as ad_20')
+            DB::raw('SUM(CASE WHEN flow = "Приход" THEN amount ELSE 0 END) / 1000000 as total'),
+            DB::raw('SUM(CASE WHEN type = "Жарима 10% (хавфсиз шаҳар)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_10_safe_city'),
+            DB::raw('SUM(CASE WHEN type = "Жарима 35% (автоматлаштирилган)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_35_auto'),
+            DB::raw('SUM(CASE WHEN type = "Жарима 5% (1 йил ичида)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_5_within_year'),
+            DB::raw('SUM(CASE WHEN type = "Жарима 10% (1 йилдан кейин)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_10_after_year'),
+            DB::raw('SUM(CASE WHEN type = "Реклама учун тўлов 20%" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as ad_20')
         )
             ->whereNotNull('district')
             ->groupBy('district')
+            ->orderBy('district')
             ->get()
             ->keyBy('district');
 
-        // Build summary data
+        // Build summaryData + accumulate totals
+        $totals = ['total' => 0, 'fine_10_safe_city' => 0, 'fine_35_auto' => 0,
+                   'fine_5_within_year' => 0, 'fine_10_after_year' => 0, 'ad_20' => 0];
         $summaryData = [];
-        $totals = [
-            'total' => 0,
-            'fine_10_safe_city' => 0,
-            'fine_35_auto' => 0,
-            'fine_5_within_year' => 0,
-            'fine_10_after_year' => 0,
-            'ad_20' => 0,
-        ];
 
-        foreach ($districts as $district) {
-            $catRow = $categoryData->get($district);
-
+        foreach ($categoryData as $district => $row) {
             $districtRow = [
-                'district' => $district,
-                'total' => $districtTotals->get($district, 0),
-                'fine_10_safe_city' => $catRow ? $catRow->fine_10_safe_city : 0,
-                'fine_35_auto' => $catRow ? $catRow->fine_35_auto : 0,
-                'fine_5_within_year' => $catRow ? $catRow->fine_5_within_year : 0,
-                'fine_10_after_year' => $catRow ? $catRow->fine_10_after_year : 0,
-                'ad_20' => $catRow ? $catRow->ad_20 : 0,
+                'district'          => $district,
+                'total'             => (float) $row->total,
+                'fine_10_safe_city' => (float) $row->fine_10_safe_city,
+                'fine_35_auto'      => (float) $row->fine_35_auto,
+                'fine_5_within_year'=> (float) $row->fine_5_within_year,
+                'fine_10_after_year'=> (float) $row->fine_10_after_year,
+                'ad_20'             => (float) $row->ad_20,
             ];
-
-            $totals['total'] += $districtRow['total'];
-            $totals['fine_10_safe_city'] += $districtRow['fine_10_safe_city'];
-            $totals['fine_35_auto'] += $districtRow['fine_35_auto'];
-            $totals['fine_5_within_year'] += $districtRow['fine_5_within_year'];
-            $totals['fine_10_after_year'] += $districtRow['fine_10_after_year'];
-            $totals['ad_20'] += $districtRow['ad_20'];
-
+            foreach ($totals as $key => $_) {
+                $totals[$key] += $districtRow[$key];
+            }
             $summaryData[] = $districtRow;
         }
 
-        // Get balance history (last 3 months) - single query
+        // Balance history: last 3 months grouped by month, using type column
         $balanceHistory = Transaction::select(
-            DB::raw('DATE_FORMAT(date, "%d.%m.%Y") as date_formatted'),
-            DB::raw('SUM(credit_amount) / 1000000 as total'),
-            DB::raw('SUM(CASE WHEN payment_purpose LIKE "%хавфсиз шаҳар%" THEN credit_amount ELSE 0 END) / 1000000 as fine_10_safe_city'),
-            DB::raw('SUM(CASE WHEN payment_purpose LIKE "%автоматлаштирилган%" THEN credit_amount ELSE 0 END) / 1000000 as fine_35_auto'),
-            DB::raw('SUM(CASE WHEN payment_purpose LIKE "%5% (1 йил ичида)%" THEN credit_amount ELSE 0 END) / 1000000 as fine_5_within_year'),
-            DB::raw('SUM(CASE WHEN payment_purpose LIKE "%10% (1 йилдан кейин)%" THEN credit_amount ELSE 0 END) / 1000000 as fine_10_after_year'),
-            DB::raw('SUM(CASE WHEN payment_purpose LIKE "%Реклама учун тўлов 20%" THEN credit_amount ELSE 0 END) / 1000000 as ad_20')
+            DB::raw('DATE_FORMAT(date, "%Y-%m") as month_key'),
+            DB::raw('DATE_FORMAT(MAX(date), "%d.%m.%Y") as date_formatted'),
+            DB::raw('SUM(CASE WHEN flow = "Приход" THEN amount ELSE 0 END) / 1000000 as total'),
+            DB::raw('SUM(CASE WHEN type = "Жарима 10% (хавфсиз шаҳар)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_10_safe_city'),
+            DB::raw('SUM(CASE WHEN type = "Жарима 35% (автоматлаштирилган)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_35_auto'),
+            DB::raw('SUM(CASE WHEN type = "Жарима 5% (1 йил ичида)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_5_within_year'),
+            DB::raw('SUM(CASE WHEN type = "Жарима 10% (1 йилдан кейин)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_10_after_year'),
+            DB::raw('SUM(CASE WHEN type = "Реклама учун тўлов 20%" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as ad_20')
         )
             ->whereDate('date', '>=', now()->subMonths(3))
-            ->groupBy('date')
-            ->orderBy('date', 'desc')
+            ->groupBy('month_key')
+            ->orderBy('month_key', 'desc')
             ->limit(3)
             ->get();
 
         $viewData = [
-            'summaryData' => $summaryData,
-            'totals' => $totals,
-            'paymentCategories' => $paymentCategories,
-            'balanceHistory' => $balanceHistory,
+            'summaryData'      => $summaryData,
+            'totals'           => $totals,
+            'balanceHistory'   => $balanceHistory,
         ];
 
-        // Cache for 10 minutes
         Cache::put($cacheKey, $viewData, self::CACHE_DURATION);
 
         return view('transactions.summary', $viewData);

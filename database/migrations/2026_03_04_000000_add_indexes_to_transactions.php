@@ -11,20 +11,31 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('transactions', function (Blueprint $table) {
-            // Add indexes for frequently queried columns
-            $table->index('district', 'idx_district');
-            $table->index('year', 'idx_year');
-            $table->index('month', 'idx_month');
-            $table->index('type', 'idx_type');
-            $table->index('flow', 'idx_flow');
-            $table->index('date', 'idx_date');
+        if (!Schema::hasTable('transactions')) {
+            return; // Transactions table not yet created, skip
+        }
 
-            // Composite indexes for common query patterns
-            $table->index(['year', 'month'], 'idx_year_month');
-            $table->index(['district', 'flow'], 'idx_district_flow');
-            $table->index(['date', 'flow'], 'idx_date_flow');
-        });
+        $indexes = [
+            ['columns' => ['district'],        'name' => 'idx_district'],
+            ['columns' => ['year'],             'name' => 'idx_year'],
+            ['columns' => ['month'],            'name' => 'idx_month'],
+            ['columns' => ['type'],             'name' => 'idx_type'],
+            ['columns' => ['flow'],             'name' => 'idx_flow'],
+            ['columns' => ['date'],             'name' => 'idx_date'],
+            ['columns' => ['year', 'month'],    'name' => 'idx_year_month'],
+            ['columns' => ['district', 'flow'], 'name' => 'idx_district_flow'],
+            ['columns' => ['date', 'flow'],     'name' => 'idx_date_flow'],
+        ];
+
+        foreach ($indexes as $index) {
+            try {
+                Schema::table('transactions', function (Blueprint $table) use ($index) {
+                    $table->index($index['columns'], $index['name']);
+                });
+            } catch (\Exception $e) {
+                // Index already exists — skip
+            }
+        }
     }
 
     /**
@@ -32,16 +43,21 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('transactions', function (Blueprint $table) {
-            $table->dropIndex('idx_district');
-            $table->dropIndex('idx_year');
-            $table->dropIndex('idx_month');
-            $table->dropIndex('idx_type');
-            $table->dropIndex('idx_flow');
-            $table->dropIndex('idx_date');
-            $table->dropIndex('idx_year_month');
-            $table->dropIndex('idx_district_flow');
-            $table->dropIndex('idx_date_flow');
-        });
+        if (!Schema::hasTable('transactions')) {
+            return;
+        }
+
+        $indexes = ['idx_district','idx_year','idx_month','idx_type','idx_flow',
+                    'idx_date','idx_year_month','idx_district_flow','idx_date_flow'];
+
+        foreach ($indexes as $idx) {
+            try {
+                Schema::table('transactions', function (Blueprint $table) use ($idx) {
+                    $table->dropIndex($idx);
+                });
+            } catch (\Exception $e) {
+                // Index doesn't exist — skip
+            }
+        }
     }
 };
