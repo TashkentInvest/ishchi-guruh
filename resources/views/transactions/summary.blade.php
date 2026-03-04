@@ -178,7 +178,8 @@
         <table class="svod-table">
             <thead>
                 <tr>
-                    <th rowspan="2" style="width:26%; text-align:left;">Туманлар ва лойиҳалар</th>
+                    <th rowspan="2" style="width:22%; text-align:left;">Туманлар ва лойиҳалар</th>
+                    <th rowspan="2" style="background:#015c58;">Жами</th>
                     <th rowspan="2">Йўл ҳаракати<br>қоидалари<br>бузилганлиги<br>учун жарималар</th>
                     <th colspan="4" style="background:#016d69; border-bottom:2px solid #fff;">Жумладан</th>
                     <th rowspan="2">Реклама<br>учун<br>тўлов 20%</th>
@@ -194,7 +195,8 @@
                 {{-- Totals row --}}
                 <tr class="total-row">
                     <td class="district-name">Жами</td>
-                    <td class="num">{{ number_format($totals['total'], 2, '.', ' ') }}</td>
+                    <td class="num">{{ number_format($totals['grand_total'], 2, '.', ' ') }}</td>
+                    <td class="num">{{ number_format($totals['fines_total'], 2, '.', ' ') }}</td>
                     <td class="num">{{ number_format($totals['fine_10_safe_city'], 2, '.', ' ') }}</td>
                     <td class="num">{{ number_format($totals['fine_35_auto'], 2, '.', ' ') }}</td>
                     <td class="num">{{ number_format($totals['fine_5_within_year'], 2, '.', ' ') }}</td>
@@ -202,14 +204,15 @@
                     <td class="num">{{ number_format($totals['ad_20'], 2, '.', ' ') }}</td>
                 </tr>
                 <tr class="incl-row">
-                    <td colspan="7" style="padding: 6px 12px;">жумладан:</td>
+                    <td colspan="8" style="padding: 6px 12px;">жумладан:</td>
                 </tr>
 
                 {{-- District rows --}}
                 @foreach($summaryData as $row)
                 <tr>
                     <td class="district-name">{{ $row['district'] }}</td>
-                    <td class="num">{{ number_format($row['total'], 2, '.', ' ') }}</td>
+                    <td class="num">{{ number_format($row['grand_total'], 2, '.', ' ') }}</td>
+                    <td class="num">{{ $row['fines_total'] > 0 ? number_format($row['fines_total'], 2, '.', ' ') : '—' }}</td>
                     <td class="num">{{ $row['fine_10_safe_city'] > 0 ? number_format($row['fine_10_safe_city'], 2, '.', ' ') : '—' }}</td>
                     <td class="num">{{ $row['fine_35_auto'] > 0 ? number_format($row['fine_35_auto'], 2, '.', ' ') : '—' }}</td>
                     <td class="num">{{ $row['fine_5_within_year'] > 0 ? number_format($row['fine_5_within_year'], 2, '.', ' ') : '—' }}</td>
@@ -222,42 +225,5 @@
     </div>
 </div>
 
-{{-- Balance history --}}
-@if($balanceHistory->count() > 0)
-<div class="tbl-block">
-    <div class="tbl-block-header">
-        <span class="title">Жамғарма ҳисоб рақамидаги қолдиқ</span>
-        <span class="sub">Охирги 3 ой</span>
-    </div>
-    <div style="overflow-x:auto;">
-        <table class="svod-table balance-table">
-            <thead>
-                <tr>
-                    <th style="text-align:left;">Сана</th>
-                    <th>Жами</th>
-                    <th>10% хавфсиз</th>
-                    <th>35% авто</th>
-                    <th>5% 1 йил</th>
-                    <th>10% 1 йилдан</th>
-                    <th>Реклама 20%</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($balanceHistory as $history)
-                <tr>
-                    <td class="district-name">{{ $history->date_formatted }}</td>
-                    <td class="num">{{ number_format($history->total, 2, '.', ' ') }}</td>
-                    <td class="num">{{ number_format($history->fine_10_safe_city, 2, '.', ' ') }}</td>
-                    <td class="num">{{ number_format($history->fine_35_auto, 2, '.', ' ') }}</td>
-                    <td class="num">{{ number_format($history->fine_5_within_year, 2, '.', ' ') }}</td>
-                    <td class="num">{{ number_format($history->fine_10_after_year, 2, '.', ' ') }}</td>
-                    <td class="num">{{ number_format($history->ad_20, 2, '.', ' ') }}</td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-    </div>
-</div>
-@endif
 
 @endsection

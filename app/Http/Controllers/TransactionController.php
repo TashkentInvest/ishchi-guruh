@@ -222,7 +222,6 @@ class TransactionController extends Controller
         // Single batch query: district × type amounts using CASE WHEN on `type` column
         $categoryData = Transaction::select(
             'district',
-            DB::raw('SUM(CASE WHEN flow = "Приход" THEN amount ELSE 0 END) / 1000000 as total'),
             DB::raw('SUM(CASE WHEN type = "Жарима 10% (хавфсиз шаҳар)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_10_safe_city'),
             DB::raw('SUM(CASE WHEN type = "Жарима 35% (автоматлаштирилган)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_35_auto'),
             DB::raw('SUM(CASE WHEN type = "Жарима 5% (1 йил ичида)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_5_within_year'),
@@ -236,19 +235,37 @@ class TransactionController extends Controller
             ->keyBy('district');
 
         // Build summaryData + accumulate totals
-        $totals = ['total' => 0, 'fine_10_safe_city' => 0, 'fine_35_auto' => 0,
-                   'fine_5_within_year' => 0, 'fine_10_after_year' => 0, 'ad_20' => 0];
+        // fines_total = sum of all 4 fine categories (excludes ad_20)
+        // grand_total = fines_total + ad_20
+        $totals = [
+            'grand_total'       => 0,
+            'fines_total'       => 0,
+            'fine_10_safe_city' => 0,
+            'fine_35_auto'      => 0,
+            'fine_5_within_year'=> 0,
+            'fine_10_after_year'=> 0,
+            'ad_20'             => 0,
+        ];
         $summaryData = [];
 
         foreach ($categoryData as $district => $row) {
+            $fine10   = (float) $row->fine_10_safe_city;
+            $fine35   = (float) $row->fine_35_auto;
+            $fine5    = (float) $row->fine_5_within_year;
+            $fine10a  = (float) $row->fine_10_after_year;
+            $ad20     = (float) $row->ad_20;
+            $finesTotal = $fine10 + $fine35 + $fine5 + $fine10a;
+            $grandTotal = $finesTotal + $ad20;
+
             $districtRow = [
                 'district'          => $district,
-                'total'             => (float) $row->total,
-                'fine_10_safe_city' => (float) $row->fine_10_safe_city,
-                'fine_35_auto'      => (float) $row->fine_35_auto,
-                'fine_5_within_year'=> (float) $row->fine_5_within_year,
-                'fine_10_after_year'=> (float) $row->fine_10_after_year,
-                'ad_20'             => (float) $row->ad_20,
+                'grand_total'       => $grandTotal,
+                'fines_total'       => $finesTotal,
+                'fine_10_safe_city' => $fine10,
+                'fine_35_auto'      => $fine35,
+                'fine_5_within_year'=> $fine5,
+                'fine_10_after_year'=> $fine10a,
+                'ad_20'             => $ad20,
             ];
             foreach ($totals as $key => $_) {
                 $totals[$key] += $districtRow[$key];
