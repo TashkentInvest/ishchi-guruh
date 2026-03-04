@@ -182,6 +182,11 @@ class TransactionController extends Controller
             FROM transactions
         ");
 
+        $uzMonths = [
+            1=>'Январь', 2=>'Феврал', 3=>'Март', 4=>'Апрел', 5=>'Май', 6=>'Июнь',
+            7=>'Июль', 8=>'Август', 9=>'Сентябрь', 10=>'Октябрь', 11=>'Ноябрь', 12=>'Декабрь'
+        ];
+
         $viewData = [
             'monthlyStats'   => $monthlyStats,
             'districtStats'  => $districtStats,
@@ -189,8 +194,8 @@ class TransactionController extends Controller
             'summary'        => (array) $summary,
             'lastMonthStats' => (array) $lastMonthStats,
             'thisMonthStats' => (array) $thisMonthStats,
-            'lastMonthLabel' => now()->subMonth()->format('F Y'),
-            'thisMonthLabel' => now()->format('F Y'),
+            'lastMonthLabel' => $uzMonths[now()->subMonth()->month] . ' ' . now()->subMonth()->year,
+            'thisMonthLabel' => $uzMonths[now()->month] . ' ' . now()->year,
         ];
 
         Cache::put($cacheKey, $viewData, self::CACHE_DURATION);

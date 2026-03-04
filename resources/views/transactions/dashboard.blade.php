@@ -174,12 +174,12 @@
 <div class="stats-row">
     <div class="stat-card teal">
         <div class="sc-label">Жами Кредит (Приход)</div>
-        <div class="sc-value">{{ number_format($totalCredit / 1000000, 1, '.', ' ') }} mln</div>
+        <div class="sc-value">{{ number_format($totalCredit / 1000000, 1, '.', ' ') }} млн</div>
         <div class="sc-sub">сўм</div>
     </div>
     <div class="stat-card blue">
         <div class="sc-label">Жами Дебет (Расход)</div>
-        <div class="sc-value">{{ number_format($totalDebit / 1000000, 1, '.', ' ') }} mln</div>
+        <div class="sc-value">{{ number_format($totalDebit / 1000000, 1, '.', ' ') }} млн</div>
         <div class="sc-sub">сўм</div>
     </div>
     <div class="stat-card green">
@@ -188,13 +188,13 @@
         <div class="sc-sub">{{ $uDistricts }} туман · {{ $uTypes }} тур</div>
     </div>
     <div class="stat-card orange">
-        <div class="sc-label">{{ $lastMonthLabel }} (оʻтган ой)</div>
-        <div class="sc-value">{{ number_format($lmCredit / 1000000, 1, '.', ' ') }} mln</div>
+        <div class="sc-label">{{ $lastMonthLabel }} (Оʻтган ой)</div>
+        <div class="sc-value">{{ number_format($lmCredit / 1000000, 1, '.', ' ') }} млн</div>
         <div class="sc-sub">{{ number_format($lmRecords) }} та йозув</div>
     </div>
     <div class="stat-card {{ $deltaUp ? 'teal' : 'red' }}">
-        <div class="sc-label">{{ $thisMonthLabel }} (ҳозирги ой)</div>
-        <div class="sc-value">{{ number_format($tmCredit / 1000000, 1, '.', ' ') }} mln</div>
+        <div class="sc-label">{{ $thisMonthLabel }} (Жорий ой)</div>
+        <div class="sc-value">{{ number_format($tmCredit / 1000000, 1, '.', ' ') }} млн</div>
         <span class="sc-delta {{ $deltaUp ? 'delta-up' : 'delta-down' }}">
             {{ $deltaUp ? '▲' : '▼' }} {{ number_format(abs($delta), 1) }}%
             оʻтган ойга нисбатан
