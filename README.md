@@ -80,3 +80,12 @@ EIMZO_SERVER_URL=http://127.0.0.1:8080
 - E-IMZO JavaScript API
 - SQLite (development)
 - QR Code Generator
+
+## IMPORT CSV
+```
+# Recommended — bypass PHP CLI memory limit entirely:
+php -d memory_limit=512M artisan transactions:import --fresh
+
+# Or re-seed via seeder:
+php -d memory_limit=512M artisan db:seed --class=TransactionsSeeder
+```

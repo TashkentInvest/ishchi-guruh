@@ -12,9 +12,8 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-// ─── Public: homepage ───
-Route::get('/', [TransactionController::class, 'index'])->name('home');
-Route::get('/home', fn() => redirect('/'));
+// ─── Public: redirect root to login ───
+Route::get('/', fn() => auth()->check() ? redirect()->route('home') : redirect()->route('login'));
 
 // ─── E-IMZO Auth ───
 Route::middleware('guest')->group(function () {
@@ -30,6 +29,9 @@ Route::get('/frontend/challenge', [EImzoAuthController::class, 'getChallenge'])-
 // ─── Authenticated (staff/admin) ───
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [EImzoAuthController::class, 'logout'])->name('logout');
+
+    // Home / Transactions list
+    Route::get('/home', [TransactionController::class, 'index'])->name('home');
 
     // Dashboard
     Route::get('/dashboard', [TransactionController::class, 'dashboard'])->name('dashboard');

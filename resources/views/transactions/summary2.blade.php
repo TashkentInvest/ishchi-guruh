@@ -178,11 +178,6 @@
                 </tr>
             </thead>
             <tbody>
-                @php
-                $years = [2023, 2024, 2025];
-                $months = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
-                @endphp
-
                 @foreach($years as $year)
                     <tr class="section-header">
                         <td colspan="14">{{ $year }} йил</td>

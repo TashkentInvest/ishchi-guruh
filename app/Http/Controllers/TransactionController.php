@@ -296,7 +296,23 @@ class TransactionController extends Controller
             return view('transactions.summary2', $cached);
         }
 
-        $years = [2023, 2024, 2025];
+        // Derive years dynamically from actual data, always include current year
+        $dbYears = Transaction::selectRaw('DISTINCT YEAR(date) as y')
+            ->whereNotNull('date')
+            ->orderBy('y')
+            ->pluck('y')
+            ->map(fn($y) => (int) $y)
+            ->toArray();
+
+        // Ensure current year is always present even if data hasn't arrived yet
+        $currentYear = (int) now()->year;
+        if (!in_array($currentYear, $dbYears)) {
+            $dbYears[] = $currentYear;
+            sort($dbYears);
+        }
+
+        $years = $dbYears;
+
         $months = [
             1 => 'Январь', 2 => 'Февраль', 3 => 'Март', 4 => 'Апрель',
             5 => 'Май', 6 => 'Июнь', 7 => 'Июль', 8 => 'Август',
