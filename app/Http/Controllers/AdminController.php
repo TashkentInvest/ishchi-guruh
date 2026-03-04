@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class AdminController extends Controller
@@ -17,12 +18,23 @@ class AdminController extends Controller
     // Dashboard overview
     public function index()
     {
+        // Single query: get total + pending count in one pass
+        $counts = DB::selectOne("
+            SELECT COUNT(*) as total,
+                   SUM(status = 'pending') as pending
+            FROM users
+        ");
+
         $stats = [
-            'users'   => User::count(),
-            'pending' => User::where('status', 'pending')->count(),
+            'users'   => (int) $counts->total,
+            'pending' => (int) $counts->pending,
         ];
 
-        $pendingUsers = User::where('status', 'pending')->latest()->take(10)->get();
+        $pendingUsers = User::select('id','name','email','pinfl','organization','status','created_at')
+            ->where('status', 'pending')
+            ->latest()
+            ->take(10)
+            ->get();
 
         return view('admin.dashboard', compact('stats', 'pendingUsers'));
     }

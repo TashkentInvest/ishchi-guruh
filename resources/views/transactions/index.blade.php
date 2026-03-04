@@ -393,9 +393,9 @@
             </thead>
             <tbody>
                 @forelse($transactions as $transaction)
-                    <tr onclick="openDrawer({{ $transaction->id }}, '{{ addslashes($transaction->district) }}', '{{ $transaction->date->format('d.m.Y') }}', '{{ addslashes($transaction->type) }}', '{{ $transaction->month }}/{{ $transaction->year }}', '{{ addslashes($transaction->flow) }}', '{{ number_format($transaction->amount, 0, ',', ' ') }}', `{{ addslashes($transaction->payment_purpose) }}`)" style="cursor:pointer;">
+                    <tr onclick="openDrawer({{ $transaction->id }}, '{{ addslashes($transaction->district) }}', '{{ $transaction->date ? date('d.m.Y', strtotime($transaction->date)) : '' }}', '{{ addslashes($transaction->type) }}', '{{ $transaction->month }}/{{ $transaction->year }}', '{{ addslashes($transaction->flow) }}', '{{ number_format($transaction->amount, 0, ',', ' ') }}', `{{ addslashes($transaction->payment_purpose) }}`" style="cursor:pointer;">
                         <td>#{{ $transaction->id }}</td>
-                        <td>{{ $transaction->date->format('d.m.Y') }}</td>
+                        <td>{{ $transaction->date ? date('d.m.Y', strtotime($transaction->date)) : '—' }}</td>
                         <td>{{ $transaction->district }}</td>
                         <td>{{ $transaction->type }}</td>
                         <td>{{ $transaction->month }} / {{ $transaction->year }}</td>
@@ -410,7 +410,7 @@
                         </td>
                         <td onclick="event.stopPropagation()">
                             <button type="button" class="action-btn" title="Кўриш"
-                                onclick="openDrawer({{ $transaction->id }}, '{{ addslashes($transaction->district) }}', '{{ $transaction->date->format('d.m.Y') }}', '{{ addslashes($transaction->type) }}', '{{ $transaction->month }}/{{ $transaction->year }}', '{{ addslashes($transaction->flow) }}', '{{ number_format($transaction->amount, 0, ',', ' ') }}', `{{ addslashes($transaction->payment_purpose) }}`)">
+                                onclick="openDrawer({{ $transaction->id }}, '{{ addslashes($transaction->district) }}', '{{ $transaction->date ? date('d.m.Y', strtotime($transaction->date)) : '' }}', '{{ addslashes($transaction->type) }}', '{{ $transaction->month }}/{{ $transaction->year }}', '{{ addslashes($transaction->flow) }}', '{{ number_format($transaction->amount, 0, ',', ' ') }}', `{{ addslashes($transaction->payment_purpose) }}`)">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                     <rect x="2.997" y="2.997" width="18.008" height="18.008" rx="5" stroke-linecap="round" stroke-linejoin="round"/>
                                     <path d="M12.5 8.499h3.002v3M11.5 15.502H8.499V12.5" stroke-linecap="round" stroke-linejoin="round"/>

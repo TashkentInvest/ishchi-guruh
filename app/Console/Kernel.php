@@ -12,7 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Re-warm all report caches every hour (runs after any data import window)
+        $schedule->command('cache:warm-reports')->hourly();
     }
 
     /**

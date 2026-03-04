@@ -68,6 +68,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/users/{user}/reject', [AdminController::class, 'rejectUser'])->name('users.reject');
             // Cache management
             Route::post('/clear-cache', [TransactionController::class, 'clearCache'])->name('clear-cache');
+            Route::post('/warm-cache', [TransactionController::class, 'warmCache'])->name('warm-cache');
         });
     }); // end approved group
 }); // end auth group

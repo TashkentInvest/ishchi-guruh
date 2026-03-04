@@ -9,89 +9,102 @@ use Illuminate\Support\Facades\Cache;
 
 class TransactionController extends Controller
 {
-    // Cache duration in seconds (10 minutes)
-    const CACHE_DURATION = 600;
+    // Report caches: 1 hour (reports don't change mid-session)
+    const CACHE_REPORT = 3600;
+    // Filter/stats caches: 15 minutes
+    const CACHE_FILTERS = 900;
     /**
      * Display a listing of transactions (public homepage)
      */
     public function index(Request $request)
     {
-        $query = Transaction::query();
-
-        // Filter by district
-        if ($request->filled('district')) {
-            $query->where('district', $request->district);
-        }
-
-        // Filter by year
-        if ($request->filled('year')) {
-            $query->where('year', $request->year);
-        }
-
-        // Filter by month
-        if ($request->filled('month')) {
-            $query->where('month', $request->month);
-        }
-
-        // Filter by type
-        if ($request->filled('type')) {
-            $query->where('type', $request->type);
-        }
-
-        // Date range filter
-        if ($request->filled('date_from')) {
-            $query->whereDate('date', '>=', $request->date_from);
-        }
-        if ($request->filled('date_to')) {
-            $query->whereDate('date', '<=', $request->date_to);
-        }
-
-        // Full-text search
-        if ($request->filled('search')) {
-            $q = $request->search;
-            $query->where(function ($q2) use ($q) {
-                $q2->where('district', 'LIKE', "%{$q}%")
-                   ->orWhere('type', 'LIKE', "%{$q}%")
-                   ->orWhere('payment_purpose', 'LIKE', "%{$q}%")
-                   ->orWhere('flow', 'LIKE', "%{$q}%");
-            });
-        }
-
-        // Sorting
+        // --- Build raw WHERE clause with bindings (Query Builder, no Eloquent hydration) ---
+        $where   = [];
+        $params  = [];
         $allowedSorts = ['id', 'date', 'district', 'type', 'flow', 'amount'];
-        $sortField = in_array($request->sort, $allowedSorts) ? $request->sort : 'id';
-        $sortDir   = $request->dir === 'asc' ? 'asc' : 'desc';
+        $sortField    = in_array($request->sort, $allowedSorts) ? $request->sort : 'id';
+        $sortDir      = $request->dir === 'asc' ? 'ASC' : 'DESC';
 
-        $transactions = $query->orderBy($sortField, $sortDir)->paginate(25)->withQueryString();
+        if ($request->filled('district'))  { $where[] = 'district = ?';        $params[] = $request->district; }
+        if ($request->filled('year'))      { $where[] = 'year = ?';             $params[] = $request->year; }
+        if ($request->filled('month'))     { $where[] = 'month = ?';            $params[] = $request->month; }
+        if ($request->filled('type'))      { $where[] = 'type = ?';             $params[] = $request->type; }
+        if ($request->filled('date_from')) { $where[] = 'date >= ?';            $params[] = $request->date_from; }
+        if ($request->filled('date_to'))   { $where[] = 'date <= ?';            $params[] = $request->date_to; }
 
-        // Get unique values for filters - CACHED for performance
-        $filterCacheKey = 'transaction_filters';
-        $filters = Cache::remember($filterCacheKey, self::CACHE_DURATION, function () {
+        if ($request->filled('search')) {
+            $q = '%' . $request->search . '%';
+            // Use FULLTEXT if available, else LIKE (FULLTEXT migration runs separately)
+            $where[] = '(district LIKE ? OR type LIKE ? OR payment_purpose LIKE ?)';
+            $params[] = $q; $params[] = $q; $params[] = $q;
+        }
+
+        $whereSQL = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+        // COUNT(*) via a fast covering query (no SELECT *)
+        $total = DB::selectOne(
+            "SELECT COUNT(*) as cnt FROM transactions {$whereSQL}",
+            $params
+        )->cnt;
+
+        $page    = max(1, (int) $request->get('page', 1));
+        $perPage = 25;
+        $offset  = ($page - 1) * $perPage;
+
+        // Fetch only needed columns — payment_purpose needed for drawer tooltip
+        $rows = DB::select(
+            "SELECT id, date, district, type, flow, amount, year, month, payment_purpose
+             FROM transactions
+             {$whereSQL}
+             ORDER BY {$sortField} {$sortDir}
+             LIMIT {$perPage} OFFSET {$offset}",
+            $params
+        );
+
+        // Manual LengthAwarePaginator (avoids Eloquent overhead on 10M rows)
+        $transactions = new \Illuminate\Pagination\LengthAwarePaginator(
+            $rows, $total, $perPage, $page,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
+
+        // Filter dropdown values — cached 15 min, single batched raw query
+        $filters = Cache::remember('transaction_filters', self::CACHE_FILTERS, function () {
+            $rows = DB::select(
+                "SELECT DISTINCT district, year, month, type FROM transactions ORDER BY district, year"
+            );
+            $d = $y = $m = $t = [];
+            foreach ($rows as $r) {
+                if ($r->district) $d[$r->district] = true;
+                if ($r->year)     $y[$r->year]     = true;
+                if ($r->month)    $m[$r->month]    = true;
+                if ($r->type)     $t[$r->type]     = true;
+            }
             return [
-                'districts' => Transaction::distinct()->pluck('district')->filter()->sort()->values(),
-                'years' => Transaction::distinct()->pluck('year')->filter()->sort()->values(),
-                'months' => Transaction::distinct()->pluck('month')->filter()->sort()->values(),
-                'types' => Transaction::distinct()->pluck('type')->filter()->sort()->values(),
+                'districts' => array_keys($d),
+                'years'     => array_keys($y),
+                'months'    => array_keys($m),
+                'types'     => array_keys($t),
             ];
         });
 
-        // Summary statistics - CACHED
-        $summaryCacheKey = 'transaction_summary';
-        $summary = Cache::remember($summaryCacheKey, self::CACHE_DURATION, function () {
-            return [
-                'total_credit' => Transaction::sum('credit_amount'),
-                'total_debit' => Transaction::sum('debit_amount'),
-                'total_records' => Transaction::count(),
-            ];
+        // Global stats — single raw query, cached
+        $summary = Cache::remember('transaction_summary', self::CACHE_FILTERS, function () {
+            return (array) DB::selectOne(
+                "SELECT
+                    SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) as total_credit,
+                    SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) as total_debit,
+                    COUNT(*) as total_records
+                 FROM transactions"
+            );
         });
 
         return view('transactions.index', [
             'transactions' => $transactions,
-            'districts' => $filters['districts'],
-            'years' => $filters['years'],
-            'months' => $filters['months'],
-            'types' => $filters['types'],
-            'summary' => $summary,
+            'districts'    => $filters['districts'],
+            'years'        => $filters['years'],
+            'months'       => $filters['months'],
+            'types'        => $filters['types'],
+            'summary'      => $summary,
         ]);
     }
 
@@ -100,105 +113,104 @@ class TransactionController extends Controller
      */
     public function dashboard(Request $request)
     {
-        $cacheKey = 'dashboard_data';
+        $viewData = Cache::remember('dashboard_data', self::CACHE_REPORT, function () {
+            $thisMonthStart = now()->startOfMonth()->toDateString();
+            $lastMonthStart = now()->subMonth()->startOfMonth()->toDateString();
+            $lastMonthEnd   = now()->subMonth()->endOfMonth()->toDateString();
 
-        $cached = Cache::get($cacheKey);
-        if ($cached) {
-            return view('transactions.dashboard', $cached);
-        }
+            // SINGLE batch query: overall + this month + last month in one pass
+            // Uses covering index (flow, amount)
+            $global = DB::selectOne("
+                SELECT
+                    SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END)                                        as total_credit,
+                    SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END)                                        as total_debit,
+                    COUNT(*)                                                                                    as total_records,
+                    COUNT(DISTINCT district)                                                                    as unique_districts,
+                    COUNT(DISTINCT type)                                                                        as unique_types,
+                    SUM(CASE WHEN flow='Приход' AND date >= ? THEN amount ELSE 0 END)                          as this_credit,
+                    SUM(CASE WHEN flow='Расход' AND date >= ? THEN amount ELSE 0 END)                          as this_debit,
+                    SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END)                                                 as this_records,
+                    SUM(CASE WHEN flow='Приход' AND date >= ? AND date <= ? THEN amount ELSE 0 END)            as last_credit,
+                    SUM(CASE WHEN flow='Расход' AND date >= ? AND date <= ? THEN amount ELSE 0 END)            as last_debit,
+                    SUM(CASE WHEN date >= ? AND date <= ? THEN 1 ELSE 0 END)                                   as last_records
+                FROM transactions
+            ", [
+                $thisMonthStart, $thisMonthStart, $thisMonthStart,
+                $lastMonthStart, $lastMonthEnd,
+                $lastMonthStart, $lastMonthEnd,
+                $lastMonthStart, $lastMonthEnd,
+            ]);
 
-        // Current and last month boundaries
-        $thisMonthStart  = now()->startOfMonth();
-        $lastMonthStart  = now()->subMonth()->startOfMonth();
-        $lastMonthEnd    = now()->subMonth()->endOfMonth();
+            // Monthly stats — last 24 months, raw SQL, uses (date, flow, amount) covering index
+            $monthlyStats = DB::select("
+                SELECT year, month,
+                    SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) as total_credit,
+                    SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) as total_debit,
+                    COUNT(*) as count
+                FROM transactions
+                WHERE date >= DATE_SUB(CURDATE(), INTERVAL 24 MONTH)
+                GROUP BY year, month
+                ORDER BY year DESC,
+                    FIELD(month,'Январь','Февраль','Март','Апрель','Май','Июнь',
+                                'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь') DESC
+                LIMIT 24
+            ");
 
-        // Last-month summary (Приход only = credit)
-        $lastMonthStats = DB::selectOne("
-            SELECT
-                SUM(CASE WHEN flow = 'Приход' THEN amount ELSE 0 END) as credit,
-                SUM(CASE WHEN flow = 'Расход' THEN amount ELSE 0 END) as debit,
-                COUNT(*) as total_records
-            FROM transactions
-            WHERE date >= ? AND date <= ?
-        ", [$lastMonthStart, $lastMonthEnd]);
+            // District stats top 20 — uses (district, flow, amount) covering index
+            $districtStats = DB::select("
+                SELECT district,
+                    SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) as total_credit,
+                    SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) as total_debit,
+                    COUNT(*) as count
+                FROM transactions
+                WHERE district IS NOT NULL
+                GROUP BY district
+                ORDER BY total_credit DESC
+                LIMIT 20
+            ");
 
-        // Current month
-        $thisMonthStats = DB::selectOne("
-            SELECT
-                SUM(CASE WHEN flow = 'Приход' THEN amount ELSE 0 END) as credit,
-                SUM(CASE WHEN flow = 'Расход' THEN amount ELSE 0 END) as debit,
-                COUNT(*) as total_records
-            FROM transactions
-            WHERE date >= ?
-        ", [$thisMonthStart]);
+            // Type stats — uses (district, flow, type, amount) covering index
+            $typeStats = DB::select("
+                SELECT type,
+                    SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) as total_credit,
+                    SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) as total_debit,
+                    COUNT(*) as count
+                FROM transactions
+                WHERE type IS NOT NULL
+                GROUP BY type
+                ORDER BY total_credit DESC
+            ");
 
-        // Monthly statistics - last 24 months grouped
-        $monthlyStats = Transaction::select(
-            'year',
-            'month',
-            DB::raw('SUM(CASE WHEN flow = "Приход" THEN amount ELSE 0 END) as total_credit'),
-            DB::raw('SUM(CASE WHEN flow = "Расход" THEN amount ELSE 0 END) as total_debit'),
-            DB::raw('COUNT(*) as count')
-        )
-            ->groupBy('year', 'month')
-            ->orderBy('year', 'desc')
-            ->orderByRaw("FIELD(month, 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь') DESC")
-            ->limit(24)
-            ->get();
+            $uzMonths = [
+                1=>'Январь', 2=>'Феврал', 3=>'Март', 4=>'Апрел', 5=>'Май', 6=>'Июнь',
+                7=>'Июль', 8=>'Август', 9=>'Сентябрь', 10=>'Октябрь', 11=>'Ноябрь', 12=>'Декабрь'
+            ];
 
-        // District statistics - top 20
-        $districtStats = Transaction::select(
-            'district',
-            DB::raw('SUM(CASE WHEN flow = "Приход" THEN amount ELSE 0 END) as total_credit'),
-            DB::raw('SUM(CASE WHEN flow = "Расход" THEN amount ELSE 0 END) as total_debit'),
-            DB::raw('COUNT(*) as count')
-        )
-            ->whereNotNull('district')
-            ->groupBy('district')
-            ->orderByDesc('total_credit')
-            ->limit(20)
-            ->get();
-
-        // Type statistics
-        $typeStats = Transaction::select(
-            'type',
-            DB::raw('SUM(CASE WHEN flow = "Приход" THEN amount ELSE 0 END) as total_credit'),
-            DB::raw('SUM(CASE WHEN flow = "Расход" THEN amount ELSE 0 END) as total_debit'),
-            DB::raw('COUNT(*) as count')
-        )
-            ->whereNotNull('type')
-            ->groupBy('type')
-            ->orderByDesc('total_credit')
-            ->get();
-
-        // Overall summary
-        $summary = DB::selectOne("
-            SELECT
-                SUM(CASE WHEN flow = 'Приход' THEN amount ELSE 0 END) as total_credit,
-                SUM(CASE WHEN flow = 'Расход' THEN amount ELSE 0 END) as total_debit,
-                COUNT(*) as total_records,
-                COUNT(DISTINCT district) as unique_districts,
-                COUNT(DISTINCT type) as unique_types
-            FROM transactions
-        ");
-
-        $uzMonths = [
-            1=>'Январь', 2=>'Феврал', 3=>'Март', 4=>'Апрел', 5=>'Май', 6=>'Июнь',
-            7=>'Июль', 8=>'Август', 9=>'Сентябрь', 10=>'Октябрь', 11=>'Ноябрь', 12=>'Декабрь'
-        ];
-
-        $viewData = [
-            'monthlyStats'   => $monthlyStats,
-            'districtStats'  => $districtStats,
-            'typeStats'      => $typeStats,
-            'summary'        => (array) $summary,
-            'lastMonthStats' => (array) $lastMonthStats,
-            'thisMonthStats' => (array) $thisMonthStats,
-            'lastMonthLabel' => $uzMonths[now()->subMonth()->month] . ' ' . now()->subMonth()->year,
-            'thisMonthLabel' => $uzMonths[now()->month] . ' ' . now()->year,
-        ];
-
-        Cache::put($cacheKey, $viewData, self::CACHE_DURATION);
+            return [
+                'monthlyStats'   => $monthlyStats,
+                'districtStats'  => $districtStats,
+                'typeStats'      => $typeStats,
+                'summary'        => [
+                    'total_credit'     => $global->total_credit,
+                    'total_debit'      => $global->total_debit,
+                    'total_records'    => $global->total_records,
+                    'unique_districts' => $global->unique_districts,
+                    'unique_types'     => $global->unique_types,
+                ],
+                'thisMonthStats' => [
+                    'credit'        => $global->this_credit,
+                    'debit'         => $global->this_debit,
+                    'total_records' => $global->this_records,
+                ],
+                'lastMonthStats' => [
+                    'credit'        => $global->last_credit,
+                    'debit'         => $global->last_debit,
+                    'total_records' => $global->last_records,
+                ],
+                'lastMonthLabel' => $uzMonths[now()->subMonth()->month] . ' ' . now()->subMonth()->year,
+                'thisMonthLabel' => $uzMonths[now()->month] . ' ' . now()->year,
+            ];
+        });
 
         return view('transactions.dashboard', $viewData);
     }
@@ -208,95 +220,78 @@ class TransactionController extends Controller
      */
     public function summary(Request $request)
     {
-        $cacheKey = 'summary_report_data';
+        $viewData = Cache::remember('summary_report_data', self::CACHE_REPORT, function () {
+            // Single raw SQL — fully covered by (district, flow, type, amount) index
+            // MySQL evaluates CASE WHEN against the covering index without touching the data file
+            $rows = DB::select("
+                SELECT
+                    district,
+                    SUM(CASE WHEN type='Жарима 10% (хавфсиз шаҳар)'   AND flow='Приход' THEN amount ELSE 0 END) / 1000000 as fine_10_safe_city,
+                    SUM(CASE WHEN type='Жарима 35% (автоматлаштирилган)' AND flow='Приход' THEN amount ELSE 0 END) / 1000000 as fine_35_auto,
+                    SUM(CASE WHEN type='Жарима 5% (1 йил ичида)'        AND flow='Приход' THEN amount ELSE 0 END) / 1000000 as fine_5_within_year,
+                    SUM(CASE WHEN type='Жарима 10% (1 йилдан кейин)'   AND flow='Приход' THEN amount ELSE 0 END) / 1000000 as fine_10_after_year,
+                    SUM(CASE WHEN type='Реклама учун тўлов 20%'         AND flow='Приход' THEN amount ELSE 0 END) / 1000000 as ad_20
+                FROM transactions
+                WHERE district IS NOT NULL
+                GROUP BY district
+                ORDER BY district
+            ");
 
-        $cached = Cache::get($cacheKey);
-        if ($cached) {
-            return view('transactions.summary', $cached);
-        }
-
-        // Categories map to `type` column values (exact match)
-        // type values: "Жарима 10% (хавфсиз шаҳар)", "Жарима 35% (автоматлаштирилган)",
-        // "Жарима 5% (1 йил ичида)", "Жарима 10% (1 йилдан кейин)", "Реклама учун тўлов 20%"
-
-        // Single batch query: district × type amounts using CASE WHEN on `type` column
-        $categoryData = Transaction::select(
-            'district',
-            DB::raw('SUM(CASE WHEN type = "Жарима 10% (хавфсиз шаҳар)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_10_safe_city'),
-            DB::raw('SUM(CASE WHEN type = "Жарима 35% (автоматлаштирилган)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_35_auto'),
-            DB::raw('SUM(CASE WHEN type = "Жарима 5% (1 йил ичида)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_5_within_year'),
-            DB::raw('SUM(CASE WHEN type = "Жарима 10% (1 йилдан кейин)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_10_after_year'),
-            DB::raw('SUM(CASE WHEN type = "Реклама учун тўлов 20%" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as ad_20')
-        )
-            ->whereNotNull('district')
-            ->groupBy('district')
-            ->orderBy('district')
-            ->get()
-            ->keyBy('district');
-
-        // Build summaryData + accumulate totals
-        // fines_total = sum of all 4 fine categories (excludes ad_20)
-        // grand_total = fines_total + ad_20
-        $totals = [
-            'grand_total'       => 0,
-            'fines_total'       => 0,
-            'fine_10_safe_city' => 0,
-            'fine_35_auto'      => 0,
-            'fine_5_within_year'=> 0,
-            'fine_10_after_year'=> 0,
-            'ad_20'             => 0,
-        ];
-        $summaryData = [];
-
-        foreach ($categoryData as $district => $row) {
-            $fine10   = (float) $row->fine_10_safe_city;
-            $fine35   = (float) $row->fine_35_auto;
-            $fine5    = (float) $row->fine_5_within_year;
-            $fine10a  = (float) $row->fine_10_after_year;
-            $ad20     = (float) $row->ad_20;
-            $finesTotal = $fine10 + $fine35 + $fine5 + $fine10a;
-            $grandTotal = $finesTotal + $ad20;
-
-            $districtRow = [
-                'district'          => $district,
-                'grand_total'       => $grandTotal,
-                'fines_total'       => $finesTotal,
-                'fine_10_safe_city' => $fine10,
-                'fine_35_auto'      => $fine35,
-                'fine_5_within_year'=> $fine5,
-                'fine_10_after_year'=> $fine10a,
-                'ad_20'             => $ad20,
+            $totals = [
+                'grand_total' => 0, 'fines_total' => 0,
+                'fine_10_safe_city' => 0, 'fine_35_auto' => 0,
+                'fine_5_within_year' => 0, 'fine_10_after_year' => 0, 'ad_20' => 0,
             ];
-            foreach ($totals as $key => $_) {
-                $totals[$key] += $districtRow[$key];
+            $summaryData = [];
+
+            foreach ($rows as $row) {
+                $f10  = (float) $row->fine_10_safe_city;
+                $f35  = (float) $row->fine_35_auto;
+                $f5   = (float) $row->fine_5_within_year;
+                $f10a = (float) $row->fine_10_after_year;
+                $ad20 = (float) $row->ad_20;
+                $ft   = $f10 + $f35 + $f5 + $f10a;
+                $gt   = $ft + $ad20;
+
+                $summaryData[] = [
+                    'district'           => $row->district,
+                    'grand_total'        => $gt,
+                    'fines_total'        => $ft,
+                    'fine_10_safe_city'  => $f10,
+                    'fine_35_auto'       => $f35,
+                    'fine_5_within_year' => $f5,
+                    'fine_10_after_year' => $f10a,
+                    'ad_20'              => $ad20,
+                ];
+                $totals['grand_total']        += $gt;
+                $totals['fines_total']         += $ft;
+                $totals['fine_10_safe_city']   += $f10;
+                $totals['fine_35_auto']         += $f35;
+                $totals['fine_5_within_year']   += $f5;
+                $totals['fine_10_after_year']   += $f10a;
+                $totals['ad_20']                += $ad20;
             }
-            $summaryData[] = $districtRow;
-        }
 
-        // Balance history: last 3 months grouped by month, using type column
-        $balanceHistory = Transaction::select(
-            DB::raw('DATE_FORMAT(date, "%Y-%m") as month_key'),
-            DB::raw('DATE_FORMAT(MAX(date), "%d.%m.%Y") as date_formatted'),
-            DB::raw('SUM(CASE WHEN flow = "Приход" THEN amount ELSE 0 END) / 1000000 as total'),
-            DB::raw('SUM(CASE WHEN type = "Жарима 10% (хавфсиз шаҳар)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_10_safe_city'),
-            DB::raw('SUM(CASE WHEN type = "Жарима 35% (автоматлаштирилган)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_35_auto'),
-            DB::raw('SUM(CASE WHEN type = "Жарима 5% (1 йил ичида)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_5_within_year'),
-            DB::raw('SUM(CASE WHEN type = "Жарима 10% (1 йилдан кейин)" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as fine_10_after_year'),
-            DB::raw('SUM(CASE WHEN type = "Реклама учун тўлов 20%" AND flow = "Приход" THEN amount ELSE 0 END) / 1000000 as ad_20')
-        )
-            ->whereDate('date', '>=', now()->subMonths(3))
-            ->groupBy('month_key')
-            ->orderBy('month_key', 'desc')
-            ->limit(3)
-            ->get();
+            // Balance history last 3 months — (date, flow, amount) covering index
+            $balanceHistory = DB::select("
+                SELECT
+                    DATE_FORMAT(date, '%Y-%m') as month_key,
+                    DATE_FORMAT(MAX(date), '%d.%m.%Y') as date_formatted,
+                    SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) / 1000000 as total,
+                    SUM(CASE WHEN type='Жарима 10% (хавфсиз шаҳар)'   AND flow='Приход' THEN amount ELSE 0 END) / 1000000 as fine_10_safe_city,
+                    SUM(CASE WHEN type='Жарима 35% (автоматлаштирилган)' AND flow='Приход' THEN amount ELSE 0 END) / 1000000 as fine_35_auto,
+                    SUM(CASE WHEN type='Жарима 5% (1 йил ичида)'        AND flow='Приход' THEN amount ELSE 0 END) / 1000000 as fine_5_within_year,
+                    SUM(CASE WHEN type='Жарима 10% (1 йилдан кейин)'   AND flow='Приход' THEN amount ELSE 0 END) / 1000000 as fine_10_after_year,
+                    SUM(CASE WHEN type='Реклама учун тўлов 20%'         AND flow='Приход' THEN amount ELSE 0 END) / 1000000 as ad_20
+                FROM transactions
+                WHERE date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
+                GROUP BY month_key
+                ORDER BY month_key DESC
+                LIMIT 3
+            ");
 
-        $viewData = [
-            'summaryData'      => $summaryData,
-            'totals'           => $totals,
-            'balanceHistory'   => $balanceHistory,
-        ];
-
-        Cache::put($cacheKey, $viewData, self::CACHE_DURATION);
+            return compact('summaryData', 'totals', 'balanceHistory');
+        });
 
         return view('transactions.summary', $viewData);
     }
@@ -306,105 +301,83 @@ class TransactionController extends Controller
      */
     public function summary2(Request $request)
     {
-        $cacheKey = 'summary2_report_data';
-
-        $cached = Cache::get($cacheKey);
-        if ($cached) {
-            return view('transactions.summary2', $cached);
-        }
-
-        // Derive years dynamically from actual data, always include current year
-        $dbYears = Transaction::selectRaw('DISTINCT YEAR(date) as y')
-            ->whereNotNull('date')
-            ->orderBy('y')
-            ->pluck('y')
-            ->map(fn($y) => (int) $y)
-            ->toArray();
-
-        // Ensure current year is always present even if data hasn't arrived yet
-        $currentYear = (int) now()->year;
-        if (!in_array($currentYear, $dbYears)) {
-            $dbYears[] = $currentYear;
-            sort($dbYears);
-        }
-
-        $years = $dbYears;
-
-        $months = [
-            1 => 'Январь', 2 => 'Февраль', 3 => 'Март', 4 => 'Апрель',
-            5 => 'Май', 6 => 'Июнь', 7 => 'Июль', 8 => 'Август',
-            9 => 'Сентябрь', 10 => 'Октябрь', 11 => 'Ноябрь', 12 => 'Декабрь'
-        ];
-
-        // OPTIMIZED: Single query to get all monthly data by year and flow
-        $monthlyData = Transaction::select(
-            DB::raw('YEAR(date) as year'),
-            DB::raw('MONTH(date) as month'),
-            'flow',
-            DB::raw('SUM(amount) / 1000000 as total')
-        )
-            ->whereIn(DB::raw('YEAR(date)'), $years)
-            ->whereIn('flow', ['Приход', 'Расход'])
-            ->groupBy(DB::raw('YEAR(date)'), DB::raw('MONTH(date)'), 'flow')
-            ->get();
-
-        // Build yearly data structure from batch query results
-        $yearlyData = [];
-        foreach ($years as $year) {
-            $yearlyData[$year] = [
-                'credit' => [],
-                'debit' => [],
-                'credit_total' => 0,
-                'debit_total' => 0,
+        $viewData = Cache::remember('summary2_report_data', self::CACHE_REPORT, function () {
+            $months = [
+                1 => 'Январь', 2 => 'Февраль', 3 => 'Март', 4 => 'Апрель',
+                5 => 'Май', 6 => 'Июнь', 7 => 'Июль', 8 => 'Август',
+                9 => 'Сентябрь', 10 => 'Октябрь', 11 => 'Ноябрь', 12 => 'Декабрь'
             ];
 
-            foreach ($months as $monthNum => $monthName) {
-                $creditRow = $monthlyData->first(function ($item) use ($year, $monthNum) {
-                    return $item->year == $year && $item->month == $monthNum && $item->flow == 'Приход';
-                });
-                $debitRow = $monthlyData->first(function ($item) use ($year, $monthNum) {
-                    return $item->year == $year && $item->month == $monthNum && $item->flow == 'Расход';
-                });
+            // Get distinct years — raw, no Eloquent Model instantiation
+            $dbYears = DB::table('transactions')
+                ->selectRaw('DISTINCT YEAR(date) as y')
+                ->whereNotNull('date')
+                ->orderBy('y')
+                ->pluck('y')
+                ->map(fn ($y) => (int) $y)
+                ->toArray();
 
-                $credit = $creditRow ? $creditRow->total : 0;
-                $debit = $debitRow ? $debitRow->total : 0;
-
-                $yearlyData[$year]['credit'][$monthNum] = $credit;
-                $yearlyData[$year]['debit'][$monthNum] = $debit;
-                $yearlyData[$year]['credit_total'] += $credit;
-                $yearlyData[$year]['debit_total'] += $debit;
+            $currentYear = (int) now()->year;
+            if (!in_array($currentYear, $dbYears)) {
+                $dbYears[] = $currentYear;
+                sort($dbYears);
             }
-        }
+            $years = $dbYears;
 
-        // OPTIMIZED: Single query for district summary
-        $districtData = Transaction::select(
-            'district',
-            DB::raw('SUM(CASE WHEN flow = "Приход" THEN amount ELSE 0 END) / 1000000 as credit'),
-            DB::raw('SUM(CASE WHEN flow = "Расход" THEN amount ELSE 0 END) / 1000000 as debit')
-        )
-            ->whereNotNull('district')
-            ->groupBy('district')
-            ->orderBy('district')
-            ->get();
+            // SINGLE query for all monthly data — uses (date, flow, amount) covering index
+            // Build a PHP keyed lookup: ['year:month:flow'] => total
+            // Eliminates the O(N×M×2) ->first() scan from the original code
+            $rawMonthly = DB::select("
+                SELECT
+                    YEAR(date)  as yr,
+                    MONTH(date) as mn,
+                    flow,
+                    SUM(amount) / 1000000 as total
+                FROM transactions
+                WHERE flow IN ('Приход', 'Расход')
+                  AND YEAR(date) IN (" . implode(',', $years) . ")
+                GROUP BY yr, mn, flow
+            ");
 
-        $districtSummary = [];
-        foreach ($districtData as $row) {
-            $districtSummary[$row->district] = [
-                'credit' => $row->credit,
-                'debit' => $row->debit,
-                'balance' => $row->credit - $row->debit,
-            ];
-        }
+            // Key the result set for O(1) lookups instead of O(N) collection scans
+            $lookup = [];
+            foreach ($rawMonthly as $r) {
+                $lookup["{$r->yr}:{$r->mn}:{$r->flow}"] = (float) $r->total;
+            }
 
-        $viewData = [
-            'yearlyData' => $yearlyData,
-            'districtSummary' => $districtSummary,
-            'years' => $years,
-            'months' => $months,
-        ];
+            $yearlyData = [];
+            foreach ($years as $year) {
+                $yearlyData[$year] = ['credit' => [], 'debit' => [], 'credit_total' => 0, 'debit_total' => 0];
+                foreach ($months as $mn => $name) {
+                    $c = $lookup["{$year}:{$mn}:Приход"] ?? 0;
+                    $d = $lookup["{$year}:{$mn}:Расход"] ?? 0;
+                    $yearlyData[$year]['credit'][$mn]  = $c;
+                    $yearlyData[$year]['debit'][$mn]   = $d;
+                    $yearlyData[$year]['credit_total'] += $c;
+                    $yearlyData[$year]['debit_total']  += $d;
+                }
+            }
 
-        // Cache for 10 minutes
-        Cache::put($cacheKey, $viewData, self::CACHE_DURATION);
+            // District summary — (district, flow, amount) covering index
+            $districtRows = DB::select("
+                SELECT district,
+                    SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) / 1000000 as credit,
+                    SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) / 1000000 as debit
+                FROM transactions
+                WHERE district IS NOT NULL
+                GROUP BY district
+                ORDER BY district
+            ");
+
+            $districtSummary = [];
+            foreach ($districtRows as $r) {
+                $c = (float) $r->credit;
+                $d = (float) $r->debit;
+                $districtSummary[$r->district] = ['credit' => $c, 'debit' => $d, 'balance' => $c - $d];
+            }
+
+            return compact('yearlyData', 'districtSummary', 'years', 'months');
+        });
 
         return view('transactions.summary2', $viewData);
     }
@@ -418,7 +391,36 @@ class TransactionController extends Controller
         Cache::forget('transaction_summary');
         Cache::forget('summary_report_data');
         Cache::forget('summary2_report_data');
+        Cache::forget('dashboard_data');
 
-        return response()->json(['message' => 'Cache cleared successfully']);
+        // JSON response for programmatic calls; redirect for form POST
+        if (request()->expectsJson()) {
+            return response()->json(['message' => 'Cache cleared successfully']);
+        }
+        return redirect()->route('admin.dashboard')
+            ->with('cache_cleared', 'Kesh muvaffaqiyatli tozalandi.');
+    }
+
+    /**
+     * Warm all report caches in background (call from scheduler or after import)
+     */
+    public function warmCache()
+    {
+        Cache::forget('dashboard_data');
+        Cache::forget('summary_report_data');
+        Cache::forget('summary2_report_data');
+        Cache::forget('transaction_filters');
+        Cache::forget('transaction_summary');
+
+        // Trigger rebuilds synchronously
+        $this->dashboard(request());
+        $this->summary(request());
+        $this->summary2(request());
+
+        if (request()->expectsJson()) {
+            return response()->json(['message' => 'Cache warmed successfully']);
+        }
+        return redirect()->route('admin.dashboard')
+            ->with('cache_cleared', 'Kesh qayta qurildi va issiq holatga keltirildi.');
     }
 }

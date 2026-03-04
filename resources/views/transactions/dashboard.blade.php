@@ -165,9 +165,11 @@
     $delta = $lmCredit > 0 ? (($tmCredit - $lmCredit) / $lmCredit * 100) : 0;
     $deltaUp = $delta >= 0;
 
-    // Max credit for bar widths
-    $maxDistrict = $districtStats->max('total_credit') ?: 1;
-    $maxType     = $typeStats->max('total_credit') ?: 1;
+    // Max credit for bar widths — $districtStats and $typeStats are arrays from DB::select()
+    $maxDistrict = count($districtStats) ? max(array_column((array) $districtStats, 'total_credit')) : 1;
+    $maxDistrict = $maxDistrict ?: 1;
+    $maxType     = count($typeStats) ? max(array_column((array) $typeStats, 'total_credit')) : 1;
+    $maxType     = $maxType ?: 1;
 @endphp
 
 {{-- ── Top stat cards ── --}}
