@@ -89,3 +89,8 @@ php -d memory_limit=512M artisan transactions:import --fresh
 # Or re-seed via seeder:
 php -d memory_limit=512M artisan db:seed --class=TransactionsSeeder
 ```
+
+```
+php artisan migrate
+php artisan make:admin --name="Administrator" --email="admin@toshkentinvest.uz" --password="YourStrongPassword"
+```

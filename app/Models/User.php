@@ -15,7 +15,7 @@ class User extends Authenticatable
         'name', 'email', 'password',
         'pinfl', 'inn', 'organization', 'position',
         'serial_number', 'certificate_valid_from', 'certificate_valid_to',
-        'role',
+        'role', 'status',
     ];
 
     protected $hidden = [
@@ -34,6 +34,12 @@ class User extends Authenticatable
     public function isAdmin(): bool         { return $this->role === 'admin'; }
     public function isConsumer(): bool      { return $this->role === 'consumer'; }
     public function hasRole(string $role): bool { return $this->role === $role; }
+
+    // --- Status helpers ---
+    public function isPending(): bool       { return $this->status === 'pending'; }
+    public function isApproved(): bool      { return $this->status === 'approved'; }
+    public function isRejected(): bool      { return $this->status === 'rejected'; }
+    public function canAccessSystem(): bool { return $this->isApproved() || $this->isAdmin(); }
 
     public function isCertificateValid(): bool
     {

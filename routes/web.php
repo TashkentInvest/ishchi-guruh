@@ -5,6 +5,7 @@ use App\Http\Controllers\EImzoAuthController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,32 +31,44 @@ Route::get('/frontend/challenge', [EImzoAuthController::class, 'getChallenge'])-
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [EImzoAuthController::class, 'logout'])->name('logout');
 
-    // Home / Transactions list
-    Route::get('/home', [TransactionController::class, 'index'])->name('home');
+    // Pending approval waiting page (no approved check here)
+    Route::get('/approval/pending', function () {
+        if (Auth::user()->canAccessSystem()) return redirect()->route('home');
+        return view('auth.pending');
+    })->name('approval.pending');
 
-    // Dashboard
-    Route::get('/dashboard', [TransactionController::class, 'dashboard'])->name('dashboard');
+    // All routes below require approved status
+    Route::middleware('approved')->group(function () {
 
-    // Summary report (Свод)
-    Route::get('/summary', [TransactionController::class, 'summary'])->name('summary');
+        // Home / Transactions list
+        Route::get('/home', [TransactionController::class, 'index'])->name('home');
 
-    // Summary report 2 (Свод 2)
-    Route::get('/summary2', [TransactionController::class, 'summary2'])->name('summary2');
+        // Dashboard
+        Route::get('/dashboard', [TransactionController::class, 'dashboard'])->name('dashboard');
 
-    // ─── Profile ───
-    Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
+        // Summary report (Свод)
+        Route::get('/summary', [TransactionController::class, 'summary'])->name('summary');
 
-    // ─── IT Admin panel ───
-    Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
-        Route::get('/', [AdminController::class, 'index'])->name('dashboard');
-        Route::get('/users', [AdminController::class, 'users'])->name('users');
-        Route::post('/users', [AdminController::class, 'storeUser'])->name('users.store');
-        Route::get('/users/{user}/edit', [AdminController::class, 'editUser'])->name('users.edit');
-        Route::patch('/users/{user}', [AdminController::class, 'updateUser'])->name('users.update');
-        Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->name('users.destroy');
+        // Summary report 2 (Свод 2)
+        Route::get('/summary2', [TransactionController::class, 'summary2'])->name('summary2');
 
-        // Cache management
-        Route::post('/clear-cache', [TransactionController::class, 'clearCache'])->name('clear-cache');
-    });
-});
+        // ─── Profile ───
+        Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
+
+        // ─── IT Admin panel ───
+        Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
+            Route::get('/', [AdminController::class, 'index'])->name('dashboard');
+            Route::get('/users', [AdminController::class, 'users'])->name('users');
+            Route::post('/users', [AdminController::class, 'storeUser'])->name('users.store');
+            Route::get('/users/{user}/edit', [AdminController::class, 'editUser'])->name('users.edit');
+            Route::patch('/users/{user}', [AdminController::class, 'updateUser'])->name('users.update');
+            Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->name('users.destroy');
+            // Approve / Reject
+            Route::post('/users/{user}/approve', [AdminController::class, 'approveUser'])->name('users.approve');
+            Route::post('/users/{user}/reject', [AdminController::class, 'rejectUser'])->name('users.reject');
+            // Cache management
+            Route::post('/clear-cache', [TransactionController::class, 'clearCache'])->name('clear-cache');
+        });
+    }); // end approved group
+}); // end auth group
 

@@ -547,7 +547,7 @@
         {{-- Logo --}}
         <div class="platon-logo">
             <a href="{{ route('dashboard') }}">
-                <div class="platon-logo-icon">T</div>
+                {{-- <div class="platon-logo-icon">T</div> --}}
                 <div class="platon-logo-text">
                     <span class="platon-logo-title">ТОШКЕНТ ЖАМҒАРМАСИ</span>
                     <span class="platon-logo-sub">Маблағлар реестри</span>

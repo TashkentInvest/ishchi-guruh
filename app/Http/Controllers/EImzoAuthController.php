@@ -123,16 +123,27 @@ class EImzoAuthController extends Controller
             $user = User::where('pinfl', $certInfo['pinfl'])->first();
 
             if (!$user) {
-                // Create new user with certificate info
+                // Create new user with certificate info — default role 'user', status 'pending' (awaiting admin approval)
                 $user = User::create([
-                    'name' => $displayName,
-                    'pinfl' => $certInfo['pinfl'],
-                    'inn' => $certInfo['inn'],
-                    'organization' => $organization,
-                    'position' => $certInfo['position'],
-                    'serial_number' => $certInfo['serial_number'],
+                    'name'                   => $displayName,
+                    'pinfl'                  => $certInfo['pinfl'],
+                    'inn'                    => $certInfo['inn'],
+                    'organization'           => $organization,
+                    'position'               => $certInfo['position'],
+                    'serial_number'          => $certInfo['serial_number'],
                     'certificate_valid_from' => $certInfo['valid_from'],
-                    'certificate_valid_to' => $certInfo['valid_to'],
+                    'certificate_valid_to'   => $certInfo['valid_to'],
+                    'role'                   => 'user',
+                    'status'                 => 'pending',
+                ]);
+
+                // Redirect new pending user to waiting page
+                Auth::login($user);
+                return response()->json([
+                    'success'  => true,
+                    'status'   => 1,
+                    'redirect' => route('approval.pending'),
+                    'message'  => 'Registration successful. Awaiting admin approval.',
                 ]);
             } else {
                 // Update existing user with latest certificate info
@@ -153,7 +164,7 @@ class EImzoAuthController extends Controller
                 'success' => true,
                 'status' => 1,
                 'message' => 'Authentication successful',
-                'redirect' => route('dashboard'),
+                'redirect' => route('home'),
                 'user' => [
                     'name' => $user->name,
                     'pinfl' => $user->pinfl,
@@ -394,7 +405,7 @@ class EImzoAuthController extends Controller
         )) {
             $request->session()->regenerate();
 
-            return redirect()->route('dashboard');
+            return redirect()->route('home');
         }
 
         return back()

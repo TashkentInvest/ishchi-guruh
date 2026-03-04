@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 namespace App\Http\Controllers;
 
@@ -18,10 +18,13 @@ class AdminController extends Controller
     public function index()
     {
         $stats = [
-            'users' => User::count(),
+            'users'   => User::count(),
+            'pending' => User::where('status', 'pending')->count(),
         ];
 
-        return view('admin.dashboard', compact('stats'));
+        $pendingUsers = User::where('status', 'pending')->latest()->take(10)->get();
+
+        return view('admin.dashboard', compact('stats', 'pendingUsers'));
     }
 
     // User management list
@@ -41,28 +44,33 @@ class AdminController extends Controller
             $query->where('role', $role);
         }
 
+        if ($status = $request->input('status')) {
+            $query->where('status', $status);
+        }
+
         $users = $query->paginate(20)->withQueryString();
         $allRoles = self::roleOptions();
+        $allStatuses = self::statusOptions();
 
-        return view('admin.users', compact('users', 'allRoles'));
+        return view('admin.users', compact('users', 'allRoles', 'allStatuses'));
     }
 
     // Create user (POST)
     public function storeUser(Request $request)
     {
         $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'nullable|email|unique:users,email',
-            'pinfl' => 'nullable|string|max:20|unique:users,pinfl',
+            'name'     => 'required|string|max:255',
+            'email'    => 'nullable|email|unique:users,email',
+            'pinfl'    => 'nullable|string|max:20|unique:users,pinfl',
             'password' => 'required|string|min:6',
-            'role' => 'required|in:' . implode(',', array_keys(self::roleOptions())),
+            'role'     => 'required|in:' . implode(',', array_keys(self::roleOptions())),
         ]);
 
         $data['password'] = Hash::make($data['password']);
 
         User::create($data);
 
-        return back()->with('success', 'Foydalanuvchi yaratildi.');
+        return back()->with('success', 'Фойдаланувчи яратилди.');
     }
 
     // Edit user (GET)
@@ -76,11 +84,11 @@ class AdminController extends Controller
     public function updateUser(Request $request, User $user)
     {
         $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'nullable|email|unique:users,email,' . $user->id,
-            'pinfl' => 'nullable|string|max:20|unique:users,pinfl,' . $user->id,
+            'name'     => 'required|string|max:255',
+            'email'    => 'nullable|email|unique:users,email,' . $user->id,
+            'pinfl'    => 'nullable|string|max:20|unique:users,pinfl,' . $user->id,
             'password' => 'nullable|string|min:6',
-            'role' => 'required|in:' . implode(',', array_keys(self::roleOptions())),
+            'role'     => 'required|in:' . implode(',', array_keys(self::roleOptions())),
         ]);
 
         if (empty($data['password'])) {
@@ -91,26 +99,49 @@ class AdminController extends Controller
 
         $user->update($data);
 
-        return redirect()->route('admin.users')->with('success', $user->name . ' yangilandi.');
+        return redirect()->route('admin.users')->with('success', $user->name . ' янгиланди.');
+    }
+
+    // Approve user
+    public function approveUser(User $user)
+    {
+        $user->update(['status' => 'approved']);
+        return back()->with('success', $user->name . ' tasdiqlandi. Endi tizimdan foydalana oladi.');
+    }
+
+    // Reject user
+    public function rejectUser(User $user)
+    {
+        $user->update(['status' => 'rejected']);
+        return back()->with('success', $user->name . ' rad etildi.');
     }
 
     // Delete user
     public function destroyUser(User $user)
     {
-        abort_if($user->id === Auth::id(), 403, 'O\'zingizni o\'chira olmaysiz');
+        abort_if($user->id === Auth::id(), 403, 'Ўзингизни ўчира олмайсиз');
 
         $name = $user->name;
         $user->delete();
 
-        return redirect()->route('admin.users')->with('success', $name . ' o\'chirildi.');
+        return redirect()->route('admin.users')->with('success', $name . ' ўчирилди.');
     }
 
     // Shared helpers
     public static function roleOptions(): array
     {
         return [
-            'admin' => 'Administrator (IT)',
-            'user' => 'Foydalanuvchi',
+            'admin' => 'Администратор (IT)',
+            'user'  => 'Фойдаланувчи',
+        ];
+    }
+
+    public static function statusOptions(): array
+    {
+        return [
+            'pending'  => 'Kutilmoqda',
+            'approved' => 'Tasdiqlangan',
+            'rejected' => 'Rad etilgan',
         ];
     }
 }

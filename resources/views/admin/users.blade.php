@@ -21,10 +21,18 @@
             </div>
         </div>
         <div>
-            <select name="role" class="form-select form-select-sm" style="min-width:160px">
+            <select name="role" class="form-select form-select-sm" style="min-width:140px">
                 <option value="">Barcha rollar</option>
                 @foreach($allRoles as $val => $lbl)
                 <option value="{{ $val }}" {{ request('role') === $val ? 'selected' : '' }}>{{ $lbl }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
+            <select name="status" class="form-select form-select-sm" style="min-width:160px">
+                <option value="">Barcha holatlar</option>
+                @foreach($allStatuses as $val => $lbl)
+                <option value="{{ $val }}" {{ request('status') === $val ? 'selected' : '' }}>{{ $lbl }}</option>
                 @endforeach
             </select>
         </div>
@@ -45,6 +53,7 @@
                 <tr>
                     <th>Foydalanuvchi</th>
                     <th>Rol</th>
+                    <th>Holat</th>
                     <th>E-IMZO</th>
                     <th>Amallar</th>
                 </tr>
@@ -73,6 +82,17 @@
                     <span class="sbadge {{ $user->isAdmin() ? 'sbadge-purple' : 'sbadge-blue' }}">{{ $rl }}</span>
                 </td>
                 <td>
+                    @if($user->status === 'pending')
+                        <span class="sbadge" style="background:#fff3cd;color:#92600a;font-size:0.75rem">⏳ Kutilmoqda</span>
+                    @elseif($user->status === 'approved')
+                        <span class="sbadge sbadge-success" style="font-size:0.75rem">✓ Tasdiqlangan</span>
+                    @elseif($user->status === 'rejected')
+                        <span class="sbadge sbadge-danger" style="font-size:0.75rem">✕ Rad etilgan</span>
+                    @else
+                        <span class="sbadge sbadge-gray" style="font-size:0.75rem">{{ $user->status }}</span>
+                    @endif
+                </td>
+                <td>
                     @if($user->serial_number)
                         <span class="sbadge {{ $user->isCertificateValid() ? 'sbadge-success' : 'sbadge-danger' }}" style="font-size:0.72rem">
                             {{ $user->isCertificateValid() ? 'Faol' : 'Muddati o\'tgan' }}
@@ -85,7 +105,42 @@
                     @endif
                 </td>
                 <td>
-                    <div style="display:flex;gap:5px;flex-wrap:wrap">
+                    <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+                        {{-- Approve / Reject buttons for pending users --}}
+                        @if($user->status === 'pending')
+                        <form action="{{ route('admin.users.approve', $user) }}" method="POST" style="margin:0">
+                            @csrf
+                            <button type="submit" class="platon-btn platon-btn-sm"
+                                style="background:#16a34a;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:0.78rem;cursor:pointer">
+                                ✓ Tasdiqlash
+                            </button>
+                        </form>
+                        <form action="{{ route('admin.users.reject', $user) }}" method="POST" style="margin:0">
+                            @csrf
+                            <button type="submit" class="platon-btn platon-btn-sm"
+                                style="background:#dc2626;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:0.78rem;cursor:pointer"
+                                onclick="return confirm('{{ addslashes($user->name) }} ni rad etasizmi?')">
+                                ✕ Rad etish
+                            </button>
+                        </form>
+                        @elseif($user->status === 'approved')
+                        <form action="{{ route('admin.users.reject', $user) }}" method="POST" style="margin:0">
+                            @csrf
+                            <button type="submit" class="platon-btn platon-btn-outline platon-btn-sm"
+                                style="font-size:0.75rem;color:#dc2626;border-color:#dc2626;"
+                                onclick="return confirm('Ruxsatni bekor qilasizmi?')">
+                                Bloklash
+                            </button>
+                        </form>
+                        @elseif($user->status === 'rejected')
+                        <form action="{{ route('admin.users.approve', $user) }}" method="POST" style="margin:0">
+                            @csrf
+                            <button type="submit" class="platon-btn platon-btn-outline platon-btn-sm"
+                                style="font-size:0.75rem;color:#16a34a;border-color:#16a34a;">
+                                Qayta tasdiqlash
+                            </button>
+                        </form>
+                        @endif
                         <a href="{{ route('admin.users.edit', $user) }}" class="platon-btn platon-btn-outline platon-btn-sm">Tahrir</a>
                         @if(auth()->id() !== $user->id)
                         <form action="{{ route('admin.users.destroy', $user) }}" method="POST" onsubmit="return confirm('{{ addslashes($user->name) }} ni o\'chirasizmi? Bu amalni bekor qilib bo\'lmaydi.')">
@@ -97,7 +152,7 @@
                 </td>
             </tr>
             @empty
-            <tr><td colspan="4" style="text-align:center;padding:40px;color:#aab0bb">Foydalanuvchilar topilmadi</td></tr>
+            <tr><td colspan="5" style="text-align:center;padding:40px;color:#aab0bb">Foydalanuvchilar topilmadi</td></tr>
             @endforelse
             </tbody>
         </table>

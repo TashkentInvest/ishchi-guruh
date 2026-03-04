@@ -62,11 +62,25 @@ function uiLoaded() {
 }
 
 function uiNotLoaded(e) {
-    var el = document.getElementById('eimzo-status');
-    if (el) {
-        el.innerHTML = '<div class="status-message status-error">' + errorCAPIWS + '</div>';
+    // Show a friendly message in the keys list area
+    var list = document.getElementById('eimzo-keys-list');
+    if (list) {
+        list.innerHTML =
+            '<div style="padding:20px;text-align:center;">' +
+            '<div style="font-size:2rem;margin-bottom:10px;">&#128274;</div>' +
+            '<div style="font-weight:700;color:#721c24;margin-bottom:8px;font-size:.95rem;">E-IMZO dasturi topilmadi</div>' +
+            '<div style="font-size:.82rem;color:#6e788b;margin-bottom:14px;line-height:1.5;">' +
+            'E-IMZO ilovasi kompyuteringizda ishlamayapti yoki o\'rnatilmagan.<br>' +
+            'Yuklab oling va qayta urinib ko\'ring.' +
+            '</div>' +
+            '<a href="https://e-imzo.uz/main/downloads/" target="_blank" ' +
+            'style="display:inline-block;padding:9px 20px;background:#018c87;color:#fff;border-radius:8px;text-decoration:none;font-size:.85rem;font-weight:600;margin-bottom:8px;">' +
+            'E-IMZO yuklab olish ↓</a><br>' +
+            '<button onclick="AppLoad()" style="background:none;border:none;color:#018c87;cursor:pointer;font-size:.82rem;text-decoration:underline;">Qayta ulanib ko\'rish</button>' +
+            '</div>';
     }
-    uiShowMessage(errorCAPIWS + (e ? ' : ' + wsErroCodeDesc(e) : ''));
+    var el = document.getElementById('eimzo-status');
+    if (el) { el.innerHTML = ''; }
 }
 
 function uiUpdateApp() {

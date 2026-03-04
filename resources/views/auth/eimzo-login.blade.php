@@ -307,14 +307,14 @@
 
     {{-- Top bar --}}
     <div class="auth-topbar">
-        <a href="{{ route('home') }}" class="auth-brand">
+        <a href="{{ route('login') }}" class="auth-brand">
             <div class="auth-brand-icon">T</div>
             <div class="auth-brand-text">
                 <span class="auth-brand-title">ТОШКЕНТ ЖАМҒАРМАСИ</span>
                 <span class="auth-brand-sub">Маблағлар реестри</span>
             </div>
         </a>
-        <a href="{{ route('home') }}" class="auth-topbar-btn">← Bosh sahifaga</a>
+        <a href="{{ route('login') }}" class="auth-topbar-btn">← Bosh sahifaga</a>
     </div>
 
     {{-- Main --}}
@@ -416,8 +416,8 @@
 
             {{-- Card footer --}}
             <div class="auth-card-footer">
-                <p class="auth-footer-text">Ariza berishni istaydingizmi?</p>
-                <a href="{{ route('home') }}" class="auth-footer-link">Onlayn ariza berish →</a>
+                <p class="auth-footer-text">Тизимга кириш учун электрон имзодан фойдаланинг</p>
+                <a href="{{ route('login') }}" class="auth-footer-link">Кириш саҳифасига Щид →</a>
                 <div class="auth-help">
                     <p>E-IMZO dasturi o'rnatilgan bo'lishi kerak</p>
                     <a href="https://e-imzo.uz/main/downloads/" target="_blank">E-IMZO yuklab olish</a>
