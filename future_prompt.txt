@@ -1,0 +1,122 @@
+I have an existing Laravel application that currently follows the default Laravel structure where controllers, models, policies, migrations, and other classes are mixed inside global directories such as `app/Models`, `app/Http/Controllers`, etc.
+
+I need to refactor this application into an **enterprise-grade modular architecture** inspired by **Domain-Driven Design (DDD)** while keeping the system simple and synchronous (no queues or background jobs).
+
+The goal is to make the system **scalable, maintainable, and optimized for financial reporting**, while supporting complex Excel-based financial data imports.
+
+The current functionality must be grouped into a module called **Jamgarma**, which represents a financial development fund. In the future, another module called **Gazna** will be added, so the architecture must ensure strong separation between modules.
+
+The system must also process **complex financial Excel reports** containing multi-level column headers and hierarchical financial categories such as income, expenses, reserves, and balances. These reports contain district-level financial data and may evolve over time with new financial categories.
+
+The architecture must therefore support **dynamic financial categories** and avoid rigid database schemas that directly mirror Excel columns.
+
+Requirements:
+
+1. Refactor the project into a **modular architecture** located inside:
+
+app/
+└── Modules/
+
+2. Create a module called **Jamgarma** and move all existing functionality into it while preserving current behavior.
+
+3. The Jamgarma module must follow an **enterprise clean architecture** structure:
+
+app/
+└── Modules/
+└── Jamgarma/
+├── Domain
+│   ├── Models
+│   ├── Policies
+│   ├── Enums
+│   └── ValueObjects
+│
+├── Application
+│   ├── Services
+│   ├── UseCases
+│   ├── DTOs
+│   └── Validators
+│
+├── Infrastructure
+│   ├── Persistence
+│   │   ├── Migrations
+│   │   ├── Seeders
+│   │   └── Repositories
+│   │
+│   ├── Excel
+│   │   ├── Importers
+│   │   └── Parsers
+│   │
+│   └── Providers
+│
+└── Interfaces
+├── Http
+│   ├── Controllers
+│   ├── Requests
+│   ├── Resources
+│   └── Middleware
+│
+└── Routes
+
+4. All namespaces must reflect the module structure, for example:
+
+App\Modules\Jamgarma\Domain\Models
+App\Modules\Jamgarma\Application\Services
+App\Modules\Jamgarma\Infrastructure\Persistence\Repositories
+App\Modules\Jamgarma\Interfaces\Http\Controllers
+
+5. The system must support importing complex Excel financial reports with hierarchical headers. The Excel structure includes financial categories such as:
+
+* Total income
+* Total expenses
+* Balance (deficit/profit)
+* Land sales
+* State property privatization
+* Renovation projects
+* Entrepreneurship support funds
+* Mahalla development programs
+* District improvement
+* Social infrastructure
+* Schools, healthcare, internal affairs, culture and sports
+* Loan repayments
+* New project financing
+* Property damage compensation
+* Returned funds
+* Reserve funds
+* Remaining balance
+
+6. The database must follow a **normalized financial reporting schema**, not a column-based Excel mirror. Recommended core entities include:
+
+* Reports (metadata for each financial report)
+* Districts or projects
+* FinancialCategories (hierarchical categories representing financial flows)
+* FinancialRecords (fact table containing amounts per report, district, and category)
+
+7. FinancialCategories must support a **tree structure** so hierarchical Excel headers can be mapped correctly.
+
+8. Implement an **Excel import layer** that:
+
+* reads multi-row headers
+* builds a category mapping dynamically
+* converts Excel rows into DTO objects
+* stores data using application services
+
+9. Ensure the following Laravel features remain fully functional after refactoring:
+
+* route registration
+* migration execution
+* policy binding
+* dependency injection
+* service container bindings
+* validation and request handling
+
+10. The architecture must be designed so that a **future module called Gazna** can be added under `app/Modules/Gazna` using the same structure without interfering with Jamgarma.
+
+11. The final architecture must prioritize:
+
+* modular separation
+* maintainable domain logic
+* high-performance database queries
+* flexibility for evolving financial report structures
+* efficient handling of large Excel files without background processing
+
+Do not remove existing functionality. Only reorganize and refactor the project while improving structure, scalability, and long-term maintainability.
