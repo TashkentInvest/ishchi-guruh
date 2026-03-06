@@ -35,30 +35,6 @@
 		margin-top: 3px;
 	}
 
-	.timeline-controls {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		flex-wrap: wrap;
-	}
-
-	.toggle-btn {
-		border: 1px solid #d1d5db;
-		background: #fff;
-		color: #334155;
-		border-radius: 8px;
-		font-size: 0.78rem;
-		font-weight: 700;
-		padding: 6px 10px;
-		cursor: pointer;
-	}
-
-	.toggle-btn.active {
-		border-color: #0f766e;
-		background: #0f766e;
-		color: #fff;
-	}
-
 	.status-pill {
 		display: inline-block;
 		background: #e0f2fe;
@@ -119,6 +95,39 @@
 		font-size: 0.76rem;
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
+	}
+
+	.timeline-table th.year-toggle,
+	.timeline-table th.month-toggle {
+		cursor: pointer;
+		user-select: none;
+		transition: background 0.12s ease;
+	}
+
+	.timeline-table th.year-toggle:hover,
+	.timeline-table th.month-toggle:hover {
+		background: #b7e0d4;
+	}
+
+	.timeline-table th.year-toggle::after,
+	.timeline-table th.month-toggle::after {
+		content: '▸';
+		display: inline-block;
+		margin-left: 6px;
+		font-size: 0.72rem;
+		color: #0f766e;
+	}
+
+	.timeline-table th.year-toggle.expanded::after,
+	.timeline-table th.month-toggle.expanded::after {
+		content: '▾';
+	}
+
+	.timeline-table .col-month,
+	.timeline-table .col-day,
+	.timeline-table .group-month-head,
+	.timeline-table .group-day-head {
+		display: none;
 	}
 
 	.timeline-table tbody tr.total-row td {
@@ -200,13 +209,7 @@
 	<div class="timeline-head">
 		<div>
 			<div class="timeline-title">Йиллик / ойлик / кунлик кесимда тушумлар ҳисоботи</div>
-			<div class="timeline-sub">Маълумотлар базадан олинади · Статус: <span class="status-pill">{{ $statusLabel }}</span></div>
-		</div>
-
-		<div class="timeline-controls">
-			<button type="button" class="toggle-btn active" data-group="year">Йиллик</button>
-			<button type="button" class="toggle-btn active" data-group="month">Ойлик</button>
-			<button type="button" class="toggle-btn active" data-group="day">Кунлик</button>
+			<div class="timeline-sub">Маълумотлар базадан олинади · Статус: <span class="status-pill">{{ $statusLabel }}</span> · Йилни босинг → ойлар, ойни босинг → кунлар</div>
 		</div>
 	</div>
 
@@ -216,26 +219,29 @@
 				<tr>
 					<th rowspan="2" class="sticky-left">Кўрсаткич</th>
 					@if($yearCount > 0)
-						<th class="group-head col-year" colspan="{{ $yearCount }}">Йиллик</th>
+						<th class="group-head col-year group-year-head" colspan="{{ $yearCount }}">Йиллик</th>
 					@endif
 					@if($monthCount > 0)
-						<th class="group-head col-month" colspan="{{ $monthCount }}">Ойлик</th>
+						<th class="group-head col-month group-month-head" colspan="{{ $monthCount }}">Ойлик</th>
 					@endif
 					@if($dayCount > 0)
-						<th class="group-head col-day" colspan="{{ $dayCount }}">Кунлик</th>
+						<th class="group-head col-day group-day-head" colspan="{{ $dayCount }}">Кунлик</th>
 					@endif
 				</tr>
 				<tr>
 					@foreach($yearColumns as $column)
-						<th class="col-year">{{ $column['label'] }}</th>
+						@php($yearKey = substr($column['key'], 2))
+						<th class="col-year year-toggle" data-year="{{ $yearKey }}" role="button" tabindex="0">{{ $column['label'] }}</th>
 					@endforeach
 
 					@foreach($monthColumns as $column)
-						<th class="col-month">{{ $column['label'] }}</th>
+						@php($monthKey = substr($column['key'], 2))
+						<th class="col-month month-toggle" data-year="{{ substr($monthKey, 0, 4) }}" data-month="{{ $monthKey }}" role="button" tabindex="0">{{ $column['label'] }}</th>
 					@endforeach
 
 					@foreach($dayColumns as $column)
-						<th class="col-day">{{ $column['label'] }}</th>
+						@php($dayDate = $column['date'])
+						<th class="col-day day-toggle" data-year="{{ substr($dayDate, 0, 4) }}" data-month="{{ substr($dayDate, 0, 7) }}">{{ $column['label'] }}</th>
 					@endforeach
 				</tr>
 			</thead>
@@ -243,7 +249,7 @@
 				@if(!empty($mainRows) || !empty($allocationRows))
 					<tr class="section-row">
 						<td class="sticky-left">Тушумлар</td>
-						<td colspan="{{ $allCount - 1 }}"></td>
+						<td class="section-fill" colspan="{{ $allCount - 1 }}"></td>
 					</tr>
 
 					@foreach($mainRows as $row)
@@ -255,18 +261,20 @@
 							@endforeach
 
 							@foreach($monthColumns as $column)
-								<td class="num col-month">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
+								@php($monthKey = substr($column['key'], 2))
+								<td class="num col-month" data-year="{{ substr($monthKey, 0, 4) }}" data-month="{{ $monthKey }}">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
 							@endforeach
 
 							@foreach($dayColumns as $column)
-								<td class="num col-day">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
+								@php($dayDate = $column['date'])
+								<td class="num col-day" data-year="{{ substr($dayDate, 0, 4) }}" data-month="{{ substr($dayDate, 0, 7) }}" data-day="{{ $dayDate }}">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
 							@endforeach
 						</tr>
 					@endforeach
 
 					<tr class="section-row">
 						<td class="sticky-left">Тақсимланган қисми</td>
-						<td colspan="{{ $allCount - 1 }}"></td>
+						<td class="section-fill" colspan="{{ $allCount - 1 }}"></td>
 					</tr>
 
 					@foreach($allocationRows as $row)
@@ -278,11 +286,13 @@
 							@endforeach
 
 							@foreach($monthColumns as $column)
-								<td class="num col-month">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
+								@php($monthKey = substr($column['key'], 2))
+								<td class="num col-month" data-year="{{ substr($monthKey, 0, 4) }}" data-month="{{ $monthKey }}">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
 							@endforeach
 
 							@foreach($dayColumns as $column)
-								<td class="num col-day">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
+								@php($dayDate = $column['date'])
+								<td class="num col-day" data-year="{{ substr($dayDate, 0, 4) }}" data-month="{{ substr($dayDate, 0, 7) }}" data-day="{{ $dayDate }}">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
 							@endforeach
 						</tr>
 					@endforeach
@@ -300,22 +310,174 @@
 @push('scripts')
 <script>
 (() => {
-	const buttons = document.querySelectorAll('.toggle-btn[data-group]');
+	const table = document.getElementById('timeline-report-table');
 
-	if (!buttons.length) {
+	if (!table) {
 		return;
 	}
 
-	buttons.forEach((button) => {
-		button.addEventListener('click', () => {
-			const group = button.getAttribute('data-group');
-			const isActive = button.classList.toggle('active');
+	const yearHeaders = Array.from(table.querySelectorAll('th.year-toggle'));
+	const monthHeaders = Array.from(table.querySelectorAll('th.month-toggle'));
+	const dayHeaders = Array.from(table.querySelectorAll('th.day-toggle'));
+	const monthCells = Array.from(table.querySelectorAll('td.col-month'));
+	const dayCells = Array.from(table.querySelectorAll('td.col-day'));
+	const monthGroupHead = table.querySelector('th.group-month-head');
+	const dayGroupHead = table.querySelector('th.group-day-head');
+	const sectionFillCells = Array.from(table.querySelectorAll('td.section-fill'));
 
-			document.querySelectorAll('.col-' + group).forEach((cell) => {
-				cell.style.display = isActive ? '' : 'none';
+	const expandedYears = new Set();
+	const expandedMonths = new Set();
+
+	const show = (element) => {
+		if (!element) {
+			return;
+		}
+
+		if (element.tagName === 'TH' || element.tagName === 'TD') {
+			element.style.display = 'table-cell';
+			return;
+		}
+
+		element.style.display = '';
+	};
+
+	const hide = (element) => {
+		if (!element) {
+			return;
+		}
+
+		element.style.display = 'none';
+	};
+
+	const setVisibility = (elements, predicate) => {
+		let visibleCount = 0;
+
+		elements.forEach((element) => {
+			if (predicate(element)) {
+				show(element);
+				visibleCount += 1;
+			} else {
+				hide(element);
+			}
+		});
+
+		return visibleCount;
+	};
+
+	const updateSectionFillColspan = () => {
+		const visibleYears = yearHeaders.length;
+		const visibleMonths = monthHeaders.filter((element) => element.style.display !== 'none').length;
+		const visibleDays = dayHeaders.filter((element) => element.style.display !== 'none').length;
+		const visibleColumns = visibleYears + visibleMonths + visibleDays;
+
+		sectionFillCells.forEach((cell) => {
+			cell.colSpan = Math.max(visibleColumns, 1);
+		});
+	};
+
+	const refresh = () => {
+		yearHeaders.forEach((header) => {
+			const year = header.dataset.year;
+			header.classList.toggle('expanded', expandedYears.has(year));
+		});
+
+		const visibleMonthHeaders = setVisibility(monthHeaders, (header) => {
+			const year = header.dataset.year;
+			const month = header.dataset.month;
+			const isVisible = expandedYears.has(year);
+
+			if (!isVisible) {
+				expandedMonths.delete(month);
+			}
+
+			header.classList.toggle('expanded', expandedMonths.has(month));
+			return isVisible;
+		});
+
+		setVisibility(monthCells, (cell) => expandedYears.has(cell.dataset.year));
+
+		const visibleDayHeaders = setVisibility(dayHeaders, (header) => {
+			return expandedMonths.has(header.dataset.month);
+		});
+
+		setVisibility(dayCells, (cell) => expandedMonths.has(cell.dataset.month));
+
+		if (monthGroupHead) {
+			if (visibleMonthHeaders > 0) {
+				show(monthGroupHead);
+				monthGroupHead.colSpan = visibleMonthHeaders;
+			} else {
+				hide(monthGroupHead);
+			}
+		}
+
+		if (dayGroupHead) {
+			if (visibleDayHeaders > 0) {
+				show(dayGroupHead);
+				dayGroupHead.colSpan = visibleDayHeaders;
+			} else {
+				hide(dayGroupHead);
+			}
+		}
+
+		updateSectionFillColspan();
+	};
+
+	const toggleYear = (year) => {
+		if (expandedYears.has(year)) {
+			expandedYears.delete(year);
+
+			monthHeaders.forEach((header) => {
+				if (header.dataset.year === year) {
+					expandedMonths.delete(header.dataset.month);
+				}
 			});
+		} else {
+			expandedYears.add(year);
+		}
+
+		refresh();
+	};
+
+	const toggleMonth = (year, month) => {
+		if (!expandedYears.has(year)) {
+			return;
+		}
+
+		if (expandedMonths.has(month)) {
+			expandedMonths.delete(month);
+		} else {
+			expandedMonths.add(month);
+		}
+
+		refresh();
+	};
+
+	yearHeaders.forEach((header) => {
+		const onToggle = () => toggleYear(header.dataset.year);
+
+		header.addEventListener('click', onToggle);
+		header.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter' || event.key === ' ') {
+				event.preventDefault();
+				onToggle();
+			}
 		});
 	});
+
+	monthHeaders.forEach((header) => {
+		const onToggle = () => toggleMonth(header.dataset.year, header.dataset.month);
+
+		header.addEventListener('click', onToggle);
+		header.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter' || event.key === ' ') {
+				event.preventDefault();
+				onToggle();
+			}
+		});
+	});
+
+	refresh();
 })();
 </script>
 @endpush

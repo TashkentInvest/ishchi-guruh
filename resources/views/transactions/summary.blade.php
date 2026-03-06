@@ -6,79 +6,89 @@
 <style>
     .report-wrap {
         background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        border: 1px solid #e8e8e8;
+        border-radius: 14px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+        border: 1px solid #dfe5ea;
         overflow: hidden;
     }
 
     .title-block {
         text-align: center;
-        padding: 12px 14px 8px;
-        background: #f6f6f6;
-        border-bottom: 1px solid #dddddd;
+        padding: 16px 18px 14px;
+        background: linear-gradient(120deg, #f0f9f8 0%, #eef6f9 100%);
+        border-bottom: 1px solid #cfe4e6;
     }
 
     .title-block h1,
     .title-block h2 {
         margin: 0;
-        line-height: 1.2;
-        color: #111;
+        line-height: 1.25;
+        color: #015c58;
         font-weight: 800;
     }
 
     .title-block h1 {
-        font-size: 2.75rem;
+        font-size: 1.35rem;
     }
 
     .title-block h2 {
         margin-top: 4px;
-        font-size: 2.55rem;
+        font-size: 1.18rem;
     }
 
     .title-block .title-red {
-        margin-top: 6px;
-        font-size: 2.55rem;
-        line-height: 1;
-        color: #b10000;
+        display: inline-block;
+        margin-top: 10px;
+        padding: 3px 12px;
+        font-size: 0.78rem;
+        line-height: 1.1;
+        color: #018c87;
         font-weight: 800;
+        letter-spacing: 0.05em;
+        border-radius: 999px;
+        border: 1px solid rgba(1, 140, 135, 0.25);
+        background: rgba(1, 140, 135, 0.08);
     }
 
     .table-wrap {
         overflow: auto;
-        border-top: 1px solid #d9d9d9;
+        border-top: 1px solid #d7dde1;
     }
 
     .report-table {
         width: 100%;
-        min-width: 2200px;
+        min-width: 1800px;
         border-collapse: collapse;
-        font-size: 2rem;
+        font-size: 0.84rem;
     }
 
     .report-table th,
     .report-table td {
-        border: 1px dashed #8fa08f;
-        padding: 6px 8px;
-        color: #121212;
+        border: 1px solid #d7dde1;
+        padding: 8px 10px;
+        color: #27314b;
         vertical-align: middle;
     }
 
     .report-table thead th {
-        background: #b7d2a8;
+        background: #018c87;
+        color: #fff;
         text-align: center;
         font-weight: 700;
+        line-height: 1.35;
     }
 
     .report-table thead .meta-row th {
-        background: #f1f1f1;
-        border: 1px solid #e0e0e0;
-        font-size: 2.3rem;
+        background: #f4f7f9;
+        border: 1px solid #e3e8ee;
+        color: #4b5563;
+        font-size: 0.79rem;
         font-weight: 700;
     }
 
     .report-table thead .meta-left {
-        text-align: center;
+        text-align: left;
+        color: #334155;
     }
 
     .report-table thead .meta-right {
@@ -86,25 +96,39 @@
         font-style: italic;
     }
 
+    .report-table tbody tr:nth-child(even) td {
+        background: #fbfcfd;
+    }
+
+    .report-table tbody tr:hover td {
+        background: #f1f7f8;
+    }
+
     .report-table tbody td:first-child {
         text-align: left;
         white-space: nowrap;
+        font-weight: 600;
+        color: #111827;
+        background: #fff;
     }
 
     .report-table tbody td.num {
-        text-align: center;
+        text-align: right;
         white-space: nowrap;
+        font-variant-numeric: tabular-nums;
     }
 
     .report-table .total-row td {
         font-weight: 800;
-        background: #f7f7f7;
+        background: #e8f4f3 !important;
+        color: #015c58;
+        border-top: 2px solid #018c87;
     }
 
     .report-table .incl-row td {
         font-style: italic;
-        color: #333;
-        background: #fbfbfb;
+        color: #6b7280;
+        background: #f7f9fb !important;
     }
 
     .empty-note {
