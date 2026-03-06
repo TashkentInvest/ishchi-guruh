@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\DatasetProcessingController;
 use App\Http\Controllers\EImzoAuthController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TransactionController;
@@ -57,6 +58,12 @@ Route::middleware('auth')->group(function () {
 
         // Jamgarma first SVOD report
         Route::get('/jamgarma/first-svod', [TransactionController::class, 'jamgarmaFirstSvod'])->name('jamgarma.first_svod');
+
+        // Large dataset cache builder (file-cache progress, no queues)
+        Route::get('/processing/cache-builder', [DatasetProcessingController::class, 'index'])->name('processing.index');
+        Route::post('/processing/cache-builder/start', [DatasetProcessingController::class, 'start'])->name('processing.start');
+        Route::get('/processing/cache-builder/progress', [DatasetProcessingController::class, 'progress'])->name('processing.progress');
+        Route::post('/processing/cache-builder/reset', [DatasetProcessingController::class, 'reset'])->name('processing.reset');
 
         // ─── Profile ───
         Route::get('/profile', [ProfileController::class, 'show'])->name('profile');

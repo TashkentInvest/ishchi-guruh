@@ -592,6 +592,13 @@
                     </a>
                 </li>
 
+                <li>
+                    <a href="{{ route('processing.index') }}" class="{{ request()->routeIs('processing.*') ? 'active' : '' }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M12 5v14"/></svg>
+                        Cache Builder
+                    </a>
+                </li>
+
 
 
                 @if(auth()->user()?->isAdmin())
