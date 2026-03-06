@@ -143,6 +143,49 @@
         border: 1px solid #b2e4e1;
     }
 
+    .filters {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+    }
+
+    .filter-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: none;
+        background: #018c87;
+        color: #fff;
+        font-size: 0.82rem;
+        font-weight: 600;
+        line-height: 1;
+        min-height: 36px;
+        text-decoration: none;
+    }
+
+    .filters select.filter-btn {
+        background: #fff;
+        color: #333;
+        border: 1px solid #dcddde;
+        min-width: 170px;
+        cursor: pointer;
+    }
+
+    .filter-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .filter-btn.filter-clear {
+        background: #6e788b;
+        color: #fff;
+    }
+
 </style>
 @endpush
 
@@ -171,7 +214,57 @@
     $maxDistrict = $maxDistrict ?: 1;
     $maxType     = count($typeStats) ? max(array_column((array) $typeStats, 'total_credit')) : 1;
     $maxType     = $maxType ?: 1;
+
+    $selectedDistrict = $selectedDistrict ?? null;
+    $selectedYear = $selectedYear ?? null;
+    $selectedMonth = $selectedMonth ?? null;
 @endphp
+
+<form id="filterForm" method="GET" action="{{ route('dashboard') }}">
+    <div class="filters">
+        <select name="status" class="filter-btn" onchange="document.getElementById('filterForm').submit()">
+            <option value="" {{ empty($activeStatus) ? 'selected' : '' }}>Барча манбалар</option>
+            <option value="jamgarma" {{ ($activeStatus ?? null) === 'jamgarma' ? 'selected' : '' }}>Jamgarma</option>
+            <option value="gazna" {{ ($activeStatus ?? null) === 'gazna' ? 'selected' : '' }}>Gazna</option>
+        </select>
+
+        <select name="district" class="filter-btn" onchange="document.getElementById('filterForm').submit()">
+            <option value="">Барча туманлар</option>
+            @foreach(($districts ?? []) as $district)
+                <option value="{{ $district }}" {{ (string) $selectedDistrict === (string) $district ? 'selected' : '' }}>
+                    {{ $district }}
+                </option>
+            @endforeach
+        </select>
+
+        <select name="year" class="filter-btn" onchange="document.getElementById('filterForm').submit()">
+            <option value="">Барча йиллар</option>
+            @foreach(($years ?? []) as $year)
+                <option value="{{ $year }}" {{ (string) $selectedYear === (string) $year ? 'selected' : '' }}>
+                    {{ $year }}
+                </option>
+            @endforeach
+        </select>
+
+        <select name="month" class="filter-btn" onchange="document.getElementById('filterForm').submit()">
+            <option value="">Барча ойлар</option>
+            @foreach(($months ?? []) as $month)
+                <option value="{{ $month }}" {{ (string) $selectedMonth === (string) $month ? 'selected' : '' }}>
+                    {{ $month }}
+                </option>
+            @endforeach
+        </select>
+
+        <button type="submit" class="filter-btn">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M6.768 4.066A2.5 2.5 0 113.232 7.6a2.5 2.5 0 013.536-3.535M16.667 5.833H7.5M16.768 12.399a2.5 2.5 0 11-3.536 3.535 2.5 2.5 0 013.536-3.535M3.333 14.167H12.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            Филтр
+        </button>
+
+        <a href="{{ route('dashboard') }}" class="filter-btn filter-clear">Тозалаш</a>
+    </div>
+</form>
 
 {{-- ── Top stat cards ── --}}
 <div class="stats-row">

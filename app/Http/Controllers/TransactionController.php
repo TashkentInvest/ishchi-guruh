@@ -142,11 +142,107 @@ class TransactionController extends Controller
     {
         $status = $this->resolveStatus($request);
         $cacheSuffix = $this->statusCacheSuffix($status);
+        $district = trim((string) $request->query('district', ''));
+        $year = trim((string) $request->query('year', ''));
+        $month = trim((string) $request->query('month', ''));
 
-        $viewData = Cache::remember("dashboard_data_{$cacheSuffix}", self::CACHE_REPORT, function () use ($status) {
+        $district = $district !== '' ? $district : null;
+        $year = $year !== '' ? $year : null;
+        $month = $month !== '' ? $month : null;
+
+        $filters = Cache::remember("transaction_filters_{$cacheSuffix}", self::CACHE_FILTERS, function () use ($status) {
+            $query = "SELECT DISTINCT district, year, month, type FROM transactions";
+            $queryParams = [];
+
+            if ($status) {
+                $query .= " WHERE status = ?";
+                $queryParams[] = $status;
+            }
+
+            $query .= " ORDER BY district, year";
+
+            $rows = DB::select($query, $queryParams);
+            $districts = $years = $months = $types = [];
+
+            foreach ($rows as $row) {
+                if ($row->district) {
+                    $districts[(string) $row->district] = true;
+                }
+
+                if ($row->year) {
+                    $years[(string) $row->year] = true;
+                }
+
+                if ($row->month) {
+                    $months[(string) $row->month] = true;
+                }
+
+                if ($row->type) {
+                    $types[(string) $row->type] = true;
+                }
+            }
+
+            return [
+                'districts' => array_keys($districts),
+                'years'     => array_keys($years),
+                'months'    => array_keys($months),
+                'types'     => array_keys($types),
+            ];
+        });
+
+        $years = $filters['years'];
+        rsort($years, SORT_NUMERIC);
+
+        $monthOrder = [
+            'Январь' => 1,
+            'Февраль' => 2,
+            'Март' => 3,
+            'Апрель' => 4,
+            'Май' => 5,
+            'Июнь' => 6,
+            'Июль' => 7,
+            'Август' => 8,
+            'Сентябрь' => 9,
+            'Октябрь' => 10,
+            'Ноябрь' => 11,
+            'Декабрь' => 12,
+        ];
+
+        $months = $filters['months'];
+        usort($months, static function (string $left, string $right) use ($monthOrder): int {
+            return ($monthOrder[$left] ?? 99) <=> ($monthOrder[$right] ?? 99);
+        });
+
+        $hasExtraFilters = $district !== null || $year !== null || $month !== null;
+
+        $buildDashboardData = function () use ($status, $district, $year, $month) {
             $thisMonthStart = now()->startOfMonth()->toDateString();
             $lastMonthStart = now()->subMonth()->startOfMonth()->toDateString();
             $lastMonthEnd   = now()->subMonth()->endOfMonth()->toDateString();
+
+            $appendScopeFilters = function (string $query, array $params = []) use ($status, $district, $year, $month): array {
+                if ($status) {
+                    $query .= " AND status = ?";
+                    $params[] = $status;
+                }
+
+                if ($district) {
+                    $query .= " AND district = ?";
+                    $params[] = $district;
+                }
+
+                if ($year) {
+                    $query .= " AND year = ?";
+                    $params[] = $year;
+                }
+
+                if ($month) {
+                    $query .= " AND month = ?";
+                    $params[] = $month;
+                }
+
+                return [$query, $params];
+            };
 
             // Overall totals (single full scan, covered by compact index)
             $overallQuery = "
@@ -155,13 +251,10 @@ class TransactionController extends Controller
                     SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) as total_debit,
                     COUNT(*) as total_records
                 FROM transactions
+                WHERE 1=1
             ";
 
-            $overallParams = [];
-            if ($status) {
-                $overallQuery .= " WHERE status = ?";
-                $overallParams[] = $status;
-            }
+            [$overallQuery, $overallParams] = $appendScopeFilters($overallQuery);
 
             $overall = DB::selectOne($overallQuery, $overallParams);
 
@@ -173,11 +266,7 @@ class TransactionController extends Controller
                   AND district <> ''
             ";
 
-            $districtCountParams = [];
-            if ($status) {
-                $districtCountQuery .= " AND status = ?";
-                $districtCountParams[] = $status;
-            }
+            [$districtCountQuery, $districtCountParams] = $appendScopeFilters($districtCountQuery);
 
             $districtCount = DB::selectOne($districtCountQuery, $districtCountParams);
 
@@ -188,11 +277,7 @@ class TransactionController extends Controller
                   AND type <> ''
             ";
 
-            $typeCountParams = [];
-            if ($status) {
-                $typeCountQuery .= " AND status = ?";
-                $typeCountParams[] = $status;
-            }
+            [$typeCountQuery, $typeCountParams] = $appendScopeFilters($typeCountQuery);
 
             $typeCount = DB::selectOne($typeCountQuery, $typeCountParams);
 
@@ -219,38 +304,51 @@ class TransactionController extends Controller
                 $lastMonthStart,
             ];
 
-            if ($status) {
-                $monthWindowQuery .= " AND status = ?";
-                $monthWindowParams[] = $status;
-            }
+            [$monthWindowQuery, $monthWindowParams] = $appendScopeFilters($monthWindowQuery, $monthWindowParams);
 
             $monthWindow = DB::selectOne($monthWindowQuery, $monthWindowParams);
 
             // Monthly stats — grouped by numeric year/month for index-friendly sorting
-            $monthlyStart = now()->subMonths(24)->startOfMonth()->toDateString();
+            if ($year || $month) {
+                $monthlyQuery = "
+                    SELECT
+                        YEAR(date) as year_num,
+                        MONTH(date) as month_num,
+                        SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) as total_credit,
+                        SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) as total_debit,
+                        COUNT(*) as count
+                    FROM transactions
+                    WHERE 1=1
+                ";
 
-            $monthlyQuery = "
-                SELECT
-                    YEAR(date) as year_num,
-                    MONTH(date) as month_num,
-                    SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) as total_credit,
-                    SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) as total_debit,
-                    COUNT(*) as count
-                FROM transactions
-                WHERE date >= ?
-            ";
+                $monthlyParams = [];
+            } else {
+                $monthlyStart = now()->subMonths(24)->startOfMonth()->toDateString();
 
-            $monthlyParams = [$monthlyStart];
-            if ($status) {
-                $monthlyQuery .= " AND status = ?";
-                $monthlyParams[] = $status;
+                $monthlyQuery = "
+                    SELECT
+                        YEAR(date) as year_num,
+                        MONTH(date) as month_num,
+                        SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) as total_credit,
+                        SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) as total_debit,
+                        COUNT(*) as count
+                    FROM transactions
+                    WHERE date >= ?
+                ";
+
+                $monthlyParams = [$monthlyStart];
             }
+
+            [$monthlyQuery, $monthlyParams] = $appendScopeFilters($monthlyQuery, $monthlyParams);
 
             $monthlyQuery .= "
                 GROUP BY year_num, month_num
                 ORDER BY year_num DESC, month_num DESC
-                LIMIT 24
             ";
+
+            if (!$year && !$month) {
+                $monthlyQuery .= " LIMIT 24";
+            }
 
             $monthlyRaw = DB::select($monthlyQuery, $monthlyParams);
 
@@ -287,11 +385,7 @@ class TransactionController extends Controller
                   AND district <> ''
             ";
 
-            $districtParams = [];
-            if ($status) {
-                $districtQuery .= " AND status = ?";
-                $districtParams[] = $status;
-            }
+            [$districtQuery, $districtParams] = $appendScopeFilters($districtQuery);
 
             $districtQuery .= "
                 GROUP BY district
@@ -312,11 +406,7 @@ class TransactionController extends Controller
                   AND type <> ''
             ";
 
-            $typeParams = [];
-            if ($status) {
-                $typeQuery .= " AND status = ?";
-                $typeParams[] = $status;
-            }
+            [$typeQuery, $typeParams] = $appendScopeFilters($typeQuery);
 
             $typeQuery .= "
                 GROUP BY type
@@ -354,9 +444,21 @@ class TransactionController extends Controller
                 'lastMonthLabel' => $uzMonths[now()->subMonth()->month] . ' ' . now()->subMonth()->year,
                 'thisMonthLabel' => $uzMonths[now()->month] . ' ' . now()->year,
             ];
-        });
+        };
+
+        if ($hasExtraFilters) {
+            $viewData = $buildDashboardData();
+        } else {
+            $viewData = Cache::remember("dashboard_data_{$cacheSuffix}", self::CACHE_REPORT, $buildDashboardData);
+        }
 
         $viewData['activeStatus'] = $status;
+        $viewData['districts'] = $filters['districts'];
+        $viewData['years'] = $years;
+        $viewData['months'] = $months;
+        $viewData['selectedDistrict'] = $district;
+        $viewData['selectedYear'] = $year;
+        $viewData['selectedMonth'] = $month;
 
         return view('transactions.dashboard', $viewData);
     }
@@ -372,68 +474,143 @@ class TransactionController extends Controller
         $viewData = Cache::remember("summary_report_data_{$cacheSuffix}", self::CACHE_REPORT, function () use ($status) {
             $data = $this->buildSvodMatrixData($status);
 
-            $preferredCodeOrder = [
-                '3430188',
-                '3430482',
-                '3430481',
-                '3430189',
-                '326700',
-                '3430465',
-                '3430417',
-                '3430135',
-                '3422292',
+            $fixedTypeColumns = [
+                [
+                    'bucket' => 'col_3430188',
+                    'type' => '__fixed_3430188',
+                    'code' => '3430188',
+                    'label' => 'Жарима 5% (1 йил ичида) 3430188',
+                ],
+                [
+                    'bucket' => 'col_3430482',
+                    'type' => '__fixed_3430482',
+                    'code' => '3430482',
+                    'label' => 'Жарима 5% (1 йил ичида) 3430482',
+                ],
+                [
+                    'bucket' => 'col_3430481',
+                    'type' => '__fixed_3430481',
+                    'code' => '3430481',
+                    'label' => 'Жарима 5% (1 йил ичида) 3430481',
+                ],
+                [
+                    'bucket' => 'col_326700',
+                    'type' => '__fixed_326700',
+                    'code' => '326700',
+                    'label' => 'Жарима 10% (1 йилдан кейин) 326700',
+                ],
+                [
+                    'bucket' => 'col_3430417',
+                    'type' => '__fixed_3430417',
+                    'code' => '3430417',
+                    'label' => 'Жарима 10% (хавфсиз шаҳар)',
+                ],
+                [
+                    'bucket' => 'col_3430189',
+                    'type' => '__fixed_3430189',
+                    'code' => '3430189',
+                    'label' => 'Жарима 10% (1 йилдан кейин)',
+                ],
+                [
+                    'bucket' => 'col_3430465',
+                    'type' => '__fixed_3430465',
+                    'code' => '3430465',
+                    'label' => 'Жарима 15% (1 йил ичида)',
+                ],
+                [
+                    'bucket' => 'col_3422292',
+                    'type' => '__fixed_3422292',
+                    'code' => '3422292',
+                    'label' => 'Ойна тусини ўзгартириш (қорайтириш) 20%',
+                ],
+                [
+                    'bucket' => 'col_3430135',
+                    'type' => '__fixed_3430135',
+                    'code' => '3430135',
+                    'label' => 'Жарима 35% (автоматлаштирилган)',
+                ],
             ];
 
-            $preferredOrderMap = array_flip($preferredCodeOrder);
-
-            $defaultLabelsByCode = [
-                '3430188' => 'Жарима 5% (1 йил ичида) 3430188',
-                '3430482' => 'Жарима 5% (1 йил ичида) 3430482',
-                '3430481' => 'Жарима 5% (1 йил ичида) 3430481',
-                '3430189' => 'Жарима 10% (1 йилдан кейин)',
-                '326700'  => 'Жарима 10% (1 йилдан кейин) 326700',
-                '3430465' => 'Жарима 15% (1 йил ичида)',
-                '3430417' => 'Жарима 10% (хавфсиз шаҳар)',
-                '3430135' => 'Жарима 35% (автоматлаштирилган)',
-                '3422292' => 'Ойна тусини ўзгартириш (қорайтириш) 20%',
-            ];
-
-            $typeMeta = [];
-            foreach ($data['typeColumns'] as $index => $type) {
-                $matches = [];
-                preg_match('/(\d{6,7})/u', (string) $type, $matches);
-                $code = $matches[1] ?? '';
-
-                $typeMeta[] = [
-                    'type' => (string) $type,
-                    'code' => $code ?: '—',
-                    'label' => $defaultLabelsByCode[$code] ?? (string) $type,
-                    'original_index' => (int) $index,
-                ];
+            $bucketToTypeKey = [];
+            foreach ($fixedTypeColumns as $column) {
+                $bucketToTypeKey[$column['bucket']] = $column['type'];
             }
 
-            usort($typeMeta, function (array $left, array $right) use ($preferredOrderMap) {
-                $leftRank = array_key_exists($left['code'], $preferredOrderMap)
-                    ? $preferredOrderMap[$left['code']]
-                    : PHP_INT_MAX;
+            $resolveBucket = function (string $type): ?string {
+                $matches = [];
+                preg_match('/(\d{6,7})/u', $type, $matches);
+                $code = $matches[1] ?? null;
 
-                $rightRank = array_key_exists($right['code'], $preferredOrderMap)
-                    ? $preferredOrderMap[$right['code']]
-                    : PHP_INT_MAX;
-
-                if ($leftRank === $rightRank) {
-                    return $left['original_index'] <=> $right['original_index'];
+                if ($code) {
+                    return match ($code) {
+                        '3430188' => 'col_3430188',
+                        '3430482' => 'col_3430482',
+                        '3430481' => 'col_3430481',
+                        '326700' => 'col_326700',
+                        '3430135' => 'col_3430135',
+                        '3430417' => 'col_3430417',
+                        '3430465' => 'col_3430465',
+                        '3430189' => 'col_3430189',
+                        '3422292' => 'col_3422292',
+                        default => null,
+                    };
                 }
 
-                return $leftRank <=> $rightRank;
-            });
+                $normalized = mb_strtolower(trim($type));
 
-            $orderedTypes = array_column($typeMeta, 'type');
+                if ($normalized === '' || $normalized === '#знач!') {
+                    return null;
+                }
 
-            $orderedSummaryRows = array_map(function (array $row) use ($orderedTypes) {
+                if (str_contains($normalized, 'қорайтириш') || (str_contains($normalized, 'реклама') && str_contains($normalized, '20'))) {
+                    return 'col_3422292';
+                }
+
+                if (str_contains($normalized, 'автомат') && str_contains($normalized, '35')) {
+                    return 'col_3430135';
+                }
+
+                if (str_contains($normalized, 'хавфсиз') && str_contains($normalized, '10')) {
+                    return 'col_3430417';
+                }
+
+                if (str_contains($normalized, '1 йил ичида') && str_contains($normalized, '15')) {
+                    return 'col_3430465';
+                }
+
+                if (str_contains($normalized, '1 йилдан кейин') && str_contains($normalized, '10')) {
+                    return 'col_3430189';
+                }
+
+                if (str_contains($normalized, '1 йил ичида') && str_contains($normalized, '5')) {
+                    return 'col_3430188';
+                }
+
+                return null;
+            };
+
+            $bucketByType = [];
+            foreach ($data['typeColumns'] as $type) {
+                $bucketByType[(string) $type] = $resolveBucket((string) $type);
+            }
+
+            $orderedTypes = array_column($fixedTypeColumns, 'type');
+
+            $orderedSummaryRows = array_map(function (array $row) use ($fixedTypeColumns, $bucketByType, $bucketToTypeKey) {
                 $orderedTypeValues = [];
-                foreach ($orderedTypes as $type) {
-                    $orderedTypeValues[$type] = (float) ($row['types'][$type] ?? 0);
+                foreach ($fixedTypeColumns as $column) {
+                    $orderedTypeValues[$column['type']] = 0.0;
+                }
+
+                foreach ($row['types'] as $type => $value) {
+                    $bucket = $bucketByType[$type] ?? null;
+                    $typeKey = $bucket ? ($bucketToTypeKey[$bucket] ?? null) : null;
+
+                    if ($typeKey === null) {
+                        continue;
+                    }
+
+                    $orderedTypeValues[$typeKey] += (float) $value;
                 }
 
                 $row['types'] = $orderedTypeValues;
@@ -441,10 +618,20 @@ class TransactionController extends Controller
                 return $row;
             }, $data['summaryRows']);
 
-            $orderedTotalTypes = [];
-            foreach ($orderedTypes as $type) {
-                $orderedTotalTypes[$type] = (float) ($data['totals']['types'][$type] ?? 0);
+            $orderedTotalTypes = array_fill_keys($orderedTypes, 0.0);
+            foreach ($orderedSummaryRows as $row) {
+                foreach ($orderedTypes as $type) {
+                    $orderedTotalTypes[$type] += (float) ($row['types'][$type] ?? 0);
+                }
             }
+
+            $typeMeta = array_map(static function (array $column): array {
+                return [
+                    'type' => $column['type'],
+                    'code' => $column['code'],
+                    'label' => $column['label'],
+                ];
+            }, $fixedTypeColumns);
 
             $data['summaryRows'] = $orderedSummaryRows;
             $data['typeColumns'] = $orderedTypes;
