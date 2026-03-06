@@ -143,32 +143,6 @@
         border: 1px solid #b2e4e1;
     }
 
-    .status-switch {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 14px;
-    }
-
-    .status-switch a {
-        display: inline-flex;
-        align-items: center;
-        padding: 6px 12px;
-        border: 1px solid #d7dde1;
-        border-radius: 8px;
-        background: #fff;
-        color: #27314b;
-        text-decoration: none;
-        font-size: 0.8rem;
-        font-weight: 600;
-    }
-
-    .status-switch a.active {
-        background: #018c87;
-        border-color: #018c87;
-        color: #fff;
-    }
 </style>
 @endpush
 
@@ -198,12 +172,6 @@
     $maxType     = count($typeStats) ? max(array_column((array) $typeStats, 'total_credit')) : 1;
     $maxType     = $maxType ?: 1;
 @endphp
-
-<div class="status-switch">
-    <a href="{{ route('dashboard') }}" class="{{ empty($activeStatus) ? 'active' : '' }}">Барчаси</a>
-    <a href="{{ route('dashboard', ['status' => 'jamgarma']) }}" class="{{ $activeStatus === 'jamgarma' ? 'active' : '' }}">Jamgarma</a>
-    <a href="{{ route('dashboard', ['status' => 'gazna']) }}" class="{{ $activeStatus === 'gazna' ? 'active' : '' }}">Gazna</a>
-</div>
 
 {{-- ── Top stat cards ── --}}
 <div class="stats-row">

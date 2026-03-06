@@ -22,6 +22,8 @@ class WarmReportCache extends Command
             Cache::forget("transaction_summary_{$suffix}");
             Cache::forget("summary_report_data_{$suffix}");
             Cache::forget("summary2_report_data_{$suffix}");
+            Cache::forget("summary_timeline_data_{$suffix}");
+            Cache::forget("jamgarma_first_svod_data_{$suffix}");
             Cache::forget("dashboard_data_{$suffix}");
         }
 
@@ -29,6 +31,9 @@ class WarmReportCache extends Command
         Cache::forget('transaction_summary');
         Cache::forget('summary_report_data');
         Cache::forget('summary2_report_data');
+        Cache::forget('summary_timeline_data');
+        Cache::forget('jamgarma_first_svod_data');
+        Cache::forget('jamgarma_first_svod_data_jamgarma');
         Cache::forget('dashboard_data');
 
         /** @var TransactionController $controller */
@@ -41,9 +46,12 @@ class WarmReportCache extends Command
             $controller->dashboard(Request::create('/dashboard', 'GET', $query));
             $controller->summary(Request::create('/summary', 'GET', $query));
             $controller->summary2(Request::create('/summary2', 'GET', $query));
+            $controller->summaryTimeline(Request::create('/summary/timeline', 'GET', $query));
 
             $this->line('  ✓ ' . ($status ?? 'all'));
         }
+
+        $controller->jamgarmaFirstSvod();
 
         $elapsed = round((microtime(true) - $start) * 1000);
         $this->info("All caches warmed in {$elapsed}ms");

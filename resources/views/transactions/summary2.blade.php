@@ -9,113 +9,115 @@
         border-radius: 12px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         border: 1px solid #e8e8e8;
-        padding: 24px;
+        padding: 20px;
     }
 
     .report-header {
         text-align: center;
-        margin-bottom: 30px;
-        padding-bottom: 20px;
-        border-bottom: 2px solid #018c87;
+        margin-bottom: 16px;
+        padding: 18px 16px 14px;
+        background: #f1f1f1;
+        border: 1px solid #dddddd;
+        border-radius: 8px;
     }
 
     .report-header h1 {
-        font-size: 1.3rem;
-        font-weight: bold;
-        margin-bottom: 8px;
-        color: #15191e;
+        font-size: 2.9rem;
+        font-weight: 700;
+        margin: 0 0 4px;
+        color: #111;
+        line-height: 1.1;
     }
 
     .report-header h2 {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #018c87;
-        margin-bottom: 10px;
+        font-size: 2.9rem;
+        font-weight: 700;
+        margin: 0 0 2px;
+        color: #111;
+        line-height: 1.1;
     }
 
-    .report-header .date {
-        font-size: 0.9rem;
-        color: #6e788b;
+    .report-header .info {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #b10000;
+        line-height: 1;
     }
 
-    /* Modern table styling */
-    .modern-table {
+    .table-wrap {
+        overflow: auto;
+        border: 1px solid #d9d9d9;
+    }
+
+    .report-table {
         width: 100%;
+        min-width: 1600px;
         border-collapse: collapse;
-        font-size: 0.875rem;
-        margin-bottom: 20px;
+        font-size: 1.65rem;
     }
 
-    .modern-table thead th {
-        padding: 14px 12px;
+    .report-table th,
+    .report-table td {
+        border: 1px dashed #8fa08f;
+        padding: 6px 8px;
+        color: #121212;
+        vertical-align: middle;
+    }
+
+    .report-table thead th {
+        background: #b7d2a8;
         text-align: center;
-        font-weight: 600;
-        color: #fff;
-        background: #018c87;
-        border: 1px solid #017570;
-        white-space: nowrap;
-    }
-
-    .modern-table thead th:first-child {
-        text-align: left;
-        border-radius: 8px 0 0 0;
-    }
-
-    .modern-table thead th:last-child {
-        border-radius: 0 8px 0 0;
-    }
-
-    .modern-table tbody td {
-        padding: 12px;
-        border: 1px solid #e0e0e0;
-        color: #333;
-    }
-
-    .modern-table tbody tr:nth-child(even) {
-        background: #f7f9fa;
-    }
-
-    .modern-table tbody tr:hover {
-        background: #e8f4f3;
-    }
-
-    .modern-table tbody td:first-child {
-        font-weight: 500;
-        text-align: left;
-    }
-
-    .modern-table tbody td:not(:first-child) {
-        text-align: right;
-    }
-
-    /* Total row */
-    .total-row {
-        background: #e8f4f3 !important;
         font-weight: 700;
     }
 
-    .total-row td {
-        border-top: 2px solid #018c87;
-        border-bottom: 2px solid #018c87;
+    .report-table thead .meta-row th {
+        background: #f1f1f1;
+        border: 1px solid #e0e0e0;
+        font-size: 2.4rem;
+        font-weight: 700;
     }
 
-    /* Section headers */
-    .section-header {
-        background: #f0f2f5 !important;
-        font-weight: 600;
-        color: #15191e;
+    .report-table thead .meta-left {
+        text-align: left;
     }
 
-    .section-header td {
-        border-top: 2px solid #c0c0c0;
+    .report-table thead .meta-right {
+        text-align: right;
+        font-style: italic;
     }
 
-    /* Print button */
+    .report-table tbody td:first-child {
+        font-weight: 500;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    .report-table tbody td.num {
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .report-table .total-row td {
+        font-weight: 800;
+        background: #f7f7f7;
+    }
+
+    .report-table .incl-row td {
+        font-style: italic;
+        color: #333;
+        background: #fbfbfb;
+    }
+
+    .print-row {
+        margin-top: 14px;
+        text-align: right;
+    }
+
     .print-btn {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 12px 24px;
+        padding: 8px 14px;
         background: #018c87;
         color: #fff;
         border: none;
@@ -123,53 +125,29 @@
         font-size: 0.9rem;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.15s;
     }
 
-    .print-btn:hover {
-        background: #017570;
-    }
-
-    .status-switch {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 14px;
-    }
-
-    .status-switch a {
-        display: inline-flex;
-        align-items: center;
-        padding: 6px 12px;
-        border: 1px solid #d7dde1;
-        border-radius: 8px;
-        background: #fff;
-        color: #27314b;
-        text-decoration: none;
-        font-size: 0.8rem;
-        font-weight: 600;
-    }
-
-    .status-switch a.active {
-        background: #018c87;
-        border-color: #018c87;
-        color: #fff;
+    .empty-note {
+        text-align: center;
+        padding: 24px;
+        color: #6e788b;
     }
 
     @media print {
         .platon-header,
         .platon-aside,
-        .print-btn,
-        .status-switch {
+        .print-row {
             display: none !important;
         }
+
         .platon-main {
             margin-left: 0 !important;
         }
+
         .report-container {
             box-shadow: none;
             border: none;
+            padding: 0;
         }
     }
 </style>
@@ -180,139 +158,113 @@
     $statusLabel = ($activeStatus ?? null) === 'gazna'
         ? 'GAZNA'
         : (($activeStatus ?? null) === 'jamgarma' ? 'JAMGARMA' : 'БАРЧАСИ');
+
+    $fmt = function ($value) {
+        return number_format((float) $value, 1, ',', ' ');
+    };
+
+    $extractCode = function (string $type): string {
+        if (preg_match('/(\d{6,7})/u', $type, $m)) {
+            return $m[1];
+        }
+
+        return '—';
+    };
+
+    $typeCount = max(count($typeColumns ?? []), 1);
 @endphp
 
-<div class="status-switch">
-    <a href="{{ route('summary2') }}" class="{{ empty($activeStatus) ? 'active' : '' }}">Барчаси</a>
-    <a href="{{ route('summary2', ['status' => 'jamgarma']) }}" class="{{ $activeStatus === 'jamgarma' ? 'active' : '' }}">Jamgarma</a>
-    <a href="{{ route('summary2', ['status' => 'gazna']) }}" class="{{ $activeStatus === 'gazna' ? 'active' : '' }}">Gazna</a>
-</div>
-
 <div class="report-container">
-    {{-- Header --}}
     <div class="report-header">
         <h1>Тошкент шахрини ривожлантириш жамғармаси</h1>
         <h2>Йиллик тушумлар бўйича маълумот (Свод 2 · {{ $statusLabel }})</h2>
-        <div class="date">{{ now()->format('d.m.Y') }}</div>
+        <div class="info">МАЪЛУМОТ</div>
     </div>
 
-    {{-- Yearly Summary Table --}}
-    <div class="table-responsive">
-        <table class="modern-table">
+    <div class="table-wrap">
+        <table class="report-table">
             <thead>
+                <tr class="meta-row">
+                    <th colspan="2" class="meta-left">{{ now()->format('d.m.Y') }}</th>
+                    <th colspan="{{ $typeCount }}"></th>
+                    <th colspan="4" class="meta-right">млн.сўм</th>
+                </tr>
                 <tr>
-                    <th>Йил / Ой</th>
-                    <th>Январь</th>
-                    <th>Февраль</th>
-                    <th>Март</th>
-                    <th>Апрель</th>
-                    <th>Май</th>
-                    <th>Июнь</th>
-                    <th>Июль</th>
-                    <th>Август</th>
-                    <th>Сентябрь</th>
-                    <th>Октябрь</th>
-                    <th>Ноябрь</th>
-                    <th>Декабрь</th>
-                    <th>Жами</th>
+                    <th rowspan="3">Туманлар ва лойиҳалар кесимида</th>
+                    <th rowspan="3">Жами тушумлар</th>
+                    <th colspan="{{ $typeCount }}">Жумладан</th>
+                    <th rowspan="3">Жумладан тақсимланган</th>
+                    <th colspan="2">Жумладан</th>
+                    <th rowspan="3">Тақсимланмаган қолдик</th>
+                </tr>
+                <tr>
+                    @forelse($typeColumns as $type)
+                        <th>{{ $extractCode($type) }}</th>
+                    @empty
+                        <th>—</th>
+                    @endforelse
+                    <th>3430188</th>
+                    <th>3430482</th>
+                </tr>
+                <tr>
+                    @forelse($typeColumns as $type)
+                        <th>{{ $type }}</th>
+                    @empty
+                        <th>Турлар</th>
+                    @endforelse
+                    <th>Жамгармага<br>Отчисление 60.0 %</th>
+                    <th>Бюджета<br>Отчисление 40.0 %</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($years as $year)
-                    <tr class="section-header">
-                        <td colspan="14">{{ $year }} йил</td>
-                    </tr>
-
-                    {{-- Credit row --}}
-                    <tr>
-                        <td style="padding-left: 24px;">Кредит (Приход)</td>
-                        @foreach($months as $index => $month)
-                            <td>{{ number_format($yearlyData[$year]['credit'][$index] ?? 0, 1, ',', ' ') }}</td>
+                @if(!empty($summaryRows))
+                    <tr class="total-row">
+                        <td>Жами</td>
+                        <td class="num">{{ $fmt($totals['total_receipts'] ?? 0) }}</td>
+                        @foreach($typeColumns as $type)
+                            <td class="num">{{ $fmt($totals['types'][$type] ?? 0) }}</td>
                         @endforeach
-                        <td style="font-weight: 700;">{{ number_format($yearlyData[$year]['credit_total'] ?? 0, 1, ',', ' ') }}</td>
+                        @if(empty($typeColumns))
+                            <td class="num">0,0</td>
+                        @endif
+                        <td class="num">{{ $fmt($totals['distributed_total'] ?? 0) }}</td>
+                        <td class="num">{{ $fmt($totals['jamgarma_share'] ?? 0) }}</td>
+                        <td class="num">{{ $fmt($totals['budget_share'] ?? 0) }}</td>
+                        <td class="num">{{ $fmt($totals['unallocated'] ?? 0) }}</td>
                     </tr>
 
-                    {{-- Debit row --}}
-                    <tr>
-                        <td style="padding-left: 24px;">Дебет (Расход)</td>
-                        @foreach($months as $index => $month)
-                            <td>{{ number_format($yearlyData[$year]['debit'][$index] ?? 0, 1, ',', ' ') }}</td>
-                        @endforeach
-                        <td style="font-weight: 700;">{{ number_format($yearlyData[$year]['debit_total'] ?? 0, 1, ',', ' ') }}</td>
+                    <tr class="incl-row">
+                        <td>жумладан:</td>
+                        <td colspan="{{ $typeCount + 5 }}"></td>
                     </tr>
 
-                    {{-- Balance row --}}
-                    <tr style="background: #e8f4f3;">
-                        <td style="padding-left: 24px; font-weight: 600;">Қолдиқ</td>
-                        @foreach($months as $index => $month)
-                            <td style="font-weight: 600;">{{ number_format(($yearlyData[$year]['credit'][$index] ?? 0) - ($yearlyData[$year]['debit'][$index] ?? 0), 1, ',', ' ') }}</td>
-                        @endforeach
-                        <td style="font-weight: 700; color: #018c87;">{{ number_format(($yearlyData[$year]['credit_total'] ?? 0) - ($yearlyData[$year]['debit_total'] ?? 0), 1, ',', ' ') }}</td>
-                    </tr>
-                @endforeach
-
-                {{-- Grand Total --}}
-                <tr class="total-row">
-                    <td>ЖАМИ</td>
-                    @php
-                    $grandTotalCredit = 0;
-                    $grandTotalDebit = 0;
-                    foreach($years as $year) {
-                        $grandTotalCredit += $yearlyData[$year]['credit_total'] ?? 0;
-                        $grandTotalDebit += $yearlyData[$year]['debit_total'] ?? 0;
-                    }
-                    @endphp
-                    @foreach($months as $index => $month)
-                        @php
-                        $monthTotal = 0;
-                        foreach($years as $year) {
-                            $monthTotal += ($yearlyData[$year]['credit'][$index] ?? 0) - ($yearlyData[$year]['debit'][$index] ?? 0);
-                        }
-                        @endphp
-                        <td>{{ number_format($monthTotal, 1, ',', ' ') }}</td>
+                    @foreach($summaryRows as $row)
+                        <tr>
+                            <td>{{ $row['district'] }}</td>
+                            <td class="num">{{ $fmt($row['total_receipts']) }}</td>
+                            @foreach($typeColumns as $type)
+                                <td class="num">{{ $fmt($row['types'][$type] ?? 0) }}</td>
+                            @endforeach
+                            @if(empty($typeColumns))
+                                <td class="num">0,0</td>
+                            @endif
+                            <td class="num">{{ $fmt($row['distributed_total']) }}</td>
+                            <td class="num">{{ $fmt($row['jamgarma_share']) }}</td>
+                            <td class="num">{{ $fmt($row['budget_share']) }}</td>
+                            <td class="num">{{ $fmt($row['unallocated']) }}</td>
+                        </tr>
                     @endforeach
-                    <td>{{ number_format($grandTotalCredit - $grandTotalDebit, 1, ',', ' ') }}</td>
-                </tr>
+                @else
+                    <tr>
+                        <td colspan="{{ $typeCount + 6 }}" class="empty-note">Маълумот йўқ</td>
+                    </tr>
+                @endif
             </tbody>
         </table>
     </div>
 
-    {{-- Summary by District --}}
-    <div style="margin-top: 30px;">
-        <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 15px; color: #15191e;">Туманлар бўйича жами:</h3>
-        <div class="table-responsive">
-            <table class="modern-table">
-                <thead>
-                    <tr>
-                        <th>Туман</th>
-                        <th>Жами Кредит</th>
-                        <th>Жами Дебет</th>
-                        <th>Қолдиқ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($districtSummary as $district => $data)
-                    <tr>
-                        <td>{{ $district }}</td>
-                        <td>{{ number_format($data['credit'], 1, ',', ' ') }}</td>
-                        <td>{{ number_format($data['debit'], 1, ',', ' ') }}</td>
-                        <td style="font-weight: 600; color: {{ $data['balance'] >= 0 ? '#0bc33f' : '#e63260' }};">{{ number_format($data['balance'], 1, ',', ' ') }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    {{-- Print Button --}}
-    <div style="text-align: center; margin-top: 30px;">
-        <button onclick="window.print()" class="print-btn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/>
-                <path d="M6 14h12v8H6z"/>
-            </svg>
-            Печать
-        </button>
+    <div class="print-row">
+        <button onclick="window.print()" class="print-btn">Печать</button>
     </div>
 </div>
 @endsection

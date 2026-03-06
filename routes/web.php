@@ -49,15 +49,14 @@ Route::middleware('auth')->group(function () {
         // Summary report (Свод)
         Route::get('/summary', [TransactionController::class, 'summary'])->name('summary');
 
-        // Summary report 2 (Свод 2)
-        Route::get('/summary2', [TransactionController::class, 'summary2'])->name('summary2');
+        // Timeline summary report (year/month/day)
+        Route::get('/summary/timeline', [TransactionController::class, 'summaryTimeline'])->name('summary.timeline');
 
-        // Gazna CSV-based reports
-        Route::get('/gazna/svod2', [TransactionController::class, 'gaznaSvod2'])->name('gazna.svod2');
+        // Gazna CSV-based report
         Route::get('/gazna/svod3', [TransactionController::class, 'gaznaSvod3'])->name('gazna.svod3');
 
-        // Jamgarma route in SVOD2-like flow
-        Route::get('/jamgarma_yol', [TransactionController::class, 'jamgarmaYol'])->name('jamgarma.yol');
+        // Jamgarma first SVOD report
+        Route::get('/jamgarma/first-svod', [TransactionController::class, 'jamgarmaFirstSvod'])->name('jamgarma.first_svod');
 
         // ─── Profile ───
         Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
