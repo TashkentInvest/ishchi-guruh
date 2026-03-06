@@ -130,10 +130,38 @@
         background: #017570;
     }
 
+    .status-switch {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+    }
+
+    .status-switch a {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border: 1px solid #d7dde1;
+        border-radius: 8px;
+        background: #fff;
+        color: #27314b;
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-switch a.active {
+        background: #018c87;
+        border-color: #018c87;
+        color: #fff;
+    }
+
     @media print {
         .platon-header,
         .platon-aside,
-        .print-btn {
+        .print-btn,
+        .status-switch {
             display: none !important;
         }
         .platon-main {
@@ -148,11 +176,23 @@
 @endpush
 
 @section('content')
+@php
+    $statusLabel = ($activeStatus ?? null) === 'gazna'
+        ? 'GAZNA'
+        : (($activeStatus ?? null) === 'jamgarma' ? 'JAMGARMA' : 'БАРЧАСИ');
+@endphp
+
+<div class="status-switch">
+    <a href="{{ route('summary2') }}" class="{{ empty($activeStatus) ? 'active' : '' }}">Барчаси</a>
+    <a href="{{ route('summary2', ['status' => 'jamgarma']) }}" class="{{ $activeStatus === 'jamgarma' ? 'active' : '' }}">Jamgarma</a>
+    <a href="{{ route('summary2', ['status' => 'gazna']) }}" class="{{ $activeStatus === 'gazna' ? 'active' : '' }}">Gazna</a>
+</div>
+
 <div class="report-container">
     {{-- Header --}}
     <div class="report-header">
         <h1>Тошкент шахрини ривожлантириш жамғармаси</h1>
-        <h2>Йиллик тушумлар бўйича маълумот (Свод 2)</h2>
+        <h2>Йиллик тушумлар бўйича маълумот (Свод 2 · {{ $statusLabel }})</h2>
         <div class="date">{{ now()->format('d.m.Y') }}</div>
     </div>
 
@@ -187,7 +227,7 @@
                     <tr>
                         <td style="padding-left: 24px;">Кредит (Приход)</td>
                         @foreach($months as $index => $month)
-                            <td>{{ number_format($yearlyData[$year]['credit'][$index + 1] ?? 0, 1, ',', ' ') }}</td>
+                            <td>{{ number_format($yearlyData[$year]['credit'][$index] ?? 0, 1, ',', ' ') }}</td>
                         @endforeach
                         <td style="font-weight: 700;">{{ number_format($yearlyData[$year]['credit_total'] ?? 0, 1, ',', ' ') }}</td>
                     </tr>
@@ -196,7 +236,7 @@
                     <tr>
                         <td style="padding-left: 24px;">Дебет (Расход)</td>
                         @foreach($months as $index => $month)
-                            <td>{{ number_format($yearlyData[$year]['debit'][$index + 1] ?? 0, 1, ',', ' ') }}</td>
+                            <td>{{ number_format($yearlyData[$year]['debit'][$index] ?? 0, 1, ',', ' ') }}</td>
                         @endforeach
                         <td style="font-weight: 700;">{{ number_format($yearlyData[$year]['debit_total'] ?? 0, 1, ',', ' ') }}</td>
                     </tr>
@@ -205,7 +245,7 @@
                     <tr style="background: #e8f4f3;">
                         <td style="padding-left: 24px; font-weight: 600;">Қолдиқ</td>
                         @foreach($months as $index => $month)
-                            <td style="font-weight: 600;">{{ number_format(($yearlyData[$year]['credit'][$index + 1] ?? 0) - ($yearlyData[$year]['debit'][$index + 1] ?? 0), 1, ',', ' ') }}</td>
+                            <td style="font-weight: 600;">{{ number_format(($yearlyData[$year]['credit'][$index] ?? 0) - ($yearlyData[$year]['debit'][$index] ?? 0), 1, ',', ' ') }}</td>
                         @endforeach
                         <td style="font-weight: 700; color: #018c87;">{{ number_format(($yearlyData[$year]['credit_total'] ?? 0) - ($yearlyData[$year]['debit_total'] ?? 0), 1, ',', ' ') }}</td>
                     </tr>
@@ -226,7 +266,7 @@
                         @php
                         $monthTotal = 0;
                         foreach($years as $year) {
-                            $monthTotal += ($yearlyData[$year]['credit'][$index + 1] ?? 0) - ($yearlyData[$year]['debit'][$index + 1] ?? 0);
+                            $monthTotal += ($yearlyData[$year]['credit'][$index] ?? 0) - ($yearlyData[$year]['debit'][$index] ?? 0);
                         }
                         @endphp
                         <td>{{ number_format($monthTotal, 1, ',', ' ') }}</td>

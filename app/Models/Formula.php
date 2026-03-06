@@ -18,5 +18,6 @@ class Formula extends Model
         'payment_name',
         'district',
         'district_code',
+        'status',
     ];
 }

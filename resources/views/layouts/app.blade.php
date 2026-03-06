@@ -565,8 +565,6 @@
                         Трансакциялар
                     </a>
                 </li>
-
-                @auth
                 <li>
                     <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7" rx="1" stroke-linecap="round" stroke-linejoin="round"/><rect x="14" y="3" width="7" height="7" rx="1" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="14" width="7" height="7" rx="1" stroke-linecap="round" stroke-linejoin="round"/><rect x="14" y="14" width="7" height="7" rx="1" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -579,13 +577,30 @@
                         Свод (Ҳисобот)
                     </a>
                 </li>
-                {{-- <li>
+                <li>
                     <a href="{{ route('summary2') }}" class="{{ request()->routeIs('summary2') ? 'active' : '' }}">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                         Свод 2 (Йиллик)
                     </a>
-                </li> --}}
-                @endauth
+                </li>
+                <li>
+                    <a href="{{ route('gazna.svod2') }}" class="{{ request()->routeIs('gazna.svod2') ? 'active' : '' }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 9h16M4 13h16M4 17h16"/></svg>
+                        Газна Свод 2
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('gazna.svod3') }}" class="{{ request()->routeIs('gazna.svod3') ? 'active' : '' }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 9h16M4 13h10M4 17h10"/></svg>
+                        Газна Свод 3
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('jamgarma.yol') }}" class="{{ request()->routeIs('jamgarma.yol') ? 'active' : '' }}">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M3 7h18M3 17h18"/></svg>
+                        Jamgarma YOL
+                    </a>
+                </li>
 
                 @if(auth()->user()?->isAdmin())
                 <div class="platon-nav-label" style="margin-top:8px">IT Бошқарув</div>

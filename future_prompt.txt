@@ -120,3 +120,167 @@ App\Modules\Jamgarma\Interfaces\Http\Controllers
 * efficient handling of large Excel files without background processing
 
 Do not remove existing functionality. Only reorganize and refactor the project while improving structure, scalability, and long-term maintainability.
+
+
+______________________
+
+Act as a Principal Software Engineer and Laravel Performance Architect with 30+ years of experience designing high-performance systems, enterprise backend architectures, and large-scale data processing platforms.
+
+You are an expert in:
+
+Laravel internals
+
+PHP performance optimization
+
+database optimization
+
+memory management
+
+high-traffic production systems
+
+scalable backend architecture
+
+user-experience aware backend design
+
+You think like a systems engineer, not just a coder. You carefully design solutions that are fast, safe, memory-efficient, scalable, and production-ready.
+
+Your task is to design and implement a Laravel-based large dataset processing system that builds cache while displaying real-time progress feedback to the user.
+
+Important Constraints:
+
+Do NOT use Redis
+
+Do NOT use Queue Jobs
+
+Do NOT use background workers
+
+Use only Laravel + PHP + file cache
+
+The system must still behave as if it were asynchronous from the user's perspective.
+
+Core Goals:
+
+Process extremely large datasets (100k–1M+ rows)
+
+Prevent memory exhaustion
+
+Maintain fast user experience
+
+Show real-time progress updates
+
+System Requirements:
+
+Implement efficient dataset streaming using Laravel techniques such as:
+
+chunk()
+
+cursor()
+
+lazy()
+
+Track progress safely:
+
+store percentage progress (0–100) in Laravel cache
+
+make progress retrievable via an API endpoint
+
+Frontend behavior:
+
+page loads instantly
+
+user clicks Start Processing
+
+progress bar updates every second using polling
+
+show percentage text above progress bar
+
+once 100% reached, show completion message and results
+
+Implement safe concurrency control:
+
+prevent multiple processes from running simultaneously
+
+use cache locking mechanism
+
+Optimize for production scale:
+
+select only required columns
+
+eager load relationships to prevent N+1 queries
+
+disable query logging during heavy processing
+
+process data in chunk sizes between 100–500 rows
+
+avoid large in-memory arrays
+
+minimize disk I/O from file cache
+
+reduce database query overhead
+
+Structure the architecture professionally:
+
+Controller for HTTP interaction
+
+Service class for processing logic
+
+Clear API routes
+
+Separation of concerns
+
+Improve perceived performance:
+
+the UI must never freeze
+
+the user should always see visual feedback
+
+Design the frontend UI elements:
+
+Start Processing button
+
+Progress bar
+
+Percentage text
+
+Result display area above progress bar
+
+Provide production optimization recommendations, including:
+
+PHP configuration improvements
+
+database indexing strategies
+
+Laravel production commands
+
+memory safety techniques
+
+Think like a performance engineer and suggest additional improvements that typical developers might overlook.
+
+Before writing code:
+First briefly explain the architecture and reasoning behind your design choices.
+
+Then provide:
+
+Laravel routes
+
+Controller
+
+Service class
+
+Frontend example (HTML + JS polling)
+
+Performance optimization notes
+
+Write the solution as if it will be deployed in a real enterprise production environment handling very large data loads.
+
+Focus on:
+
+speed
+
+stability
+
+maintainability
+
+memory efficiency
+
+clean architecture. 

@@ -21,6 +21,7 @@ class Transaction extends Model
         'type',
         'year',
         'day_date',
+        'status',
     ];
 
     protected $casts = [

@@ -138,8 +138,35 @@
     }
     .print-btn:hover { background: #017570; color: #fff; }
 
+    .status-switch {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+    }
+
+    .status-switch a {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border: 1px solid #d7dde1;
+        border-radius: 8px;
+        background: #fff;
+        color: #27314b;
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-switch a.active {
+        background: #018c87;
+        border-color: #018c87;
+        color: #fff;
+    }
+
     @media print {
-        .platon-header, .platon-aside, .print-btn, .report-band .rtag { display: none !important; }
+        .platon-header, .platon-aside, .print-btn, .report-band .rtag, .status-switch { display: none !important; }
         .platon-main { margin-left: 0 !important; }
         .tbl-block { box-shadow: none; border: 1px solid #ccc; }
     }
@@ -147,6 +174,21 @@
 @endpush
 
 @section('content')
+
+@php
+    $statusLabel = ($activeStatus ?? null) === 'gazna'
+        ? 'GAZNA'
+        : (($activeStatus ?? null) === 'jamgarma' ? 'JAMGARMA' : 'БАРЧАСИ');
+@endphp
+
+<div class="status-switch">
+    <a href="{{ route('summary') }}" class="{{ empty($activeStatus) ? 'active' : '' }}">Барчаси</a>
+    <a href="{{ route('summary', ['status' => 'jamgarma']) }}" class="{{ $activeStatus === 'jamgarma' ? 'active' : '' }}">Jamgarma</a>
+    <a href="{{ route('summary', ['status' => 'gazna']) }}" class="{{ $activeStatus === 'gazna' ? 'active' : '' }}">Gazna</a>
+    <a href="{{ route('gazna.svod2') }}" class="{{ request()->routeIs('gazna.svod2') ? 'active' : '' }}">Gazna Svod2</a>
+    <a href="{{ route('gazna.svod3') }}" class="{{ request()->routeIs('gazna.svod3') ? 'active' : '' }}">Gazna Svod3</a>
+    <a href="{{ route('jamgarma.yol') }}" class="{{ request()->routeIs('jamgarma.yol') ? 'active' : '' }}">Jamgarma YOL</a>
+</div>
 
 {{-- Report header band --}}
 <div class="report-band">
@@ -158,7 +200,7 @@
         </div>
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
-        <span class="rtag">МАЪЛУМОТ</span>
+        <span class="rtag">{{ $statusLabel }}</span>
         <button onclick="window.print()" class="print-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><path d="M6 14h12v8H6z"/>
@@ -178,17 +220,13 @@
         <table class="svod-table">
             <thead>
                 <tr>
-                    <th rowspan="2" style="width:22%; text-align:left;">Туманлар ва лойиҳалар</th>
-                    <th rowspan="2" style="background:#015c58;">Жами</th>
-                    <th rowspan="2">Йўл ҳаракати<br>қоидалари<br>бузилганлиги<br>учун жарималар</th>
-                    <th colspan="4" style="background:#016d69; border-bottom:2px solid #fff;">Жумладан</th>
-                    <th rowspan="2">Реклама<br>учун<br>тўлов 20%</th>
-                </tr>
-                <tr>
-                    <th style="background:#019b96;">Жарима 10%<br>(хавфсиз шаҳар)</th>
-                    <th style="background:#019b96;">Жарима 35%<br>(автоматлаштирилган)</th>
-                    <th style="background:#019b96;">Жарима 5%<br>(1 йил ичида)</th>
-                    <th style="background:#019b96;">Жарима 10%<br>(1 йилдан кейин)</th>
+                    <th style="width:22%; text-align:left;">Туманлар ва лойиҳалар</th>
+                    <th style="background:#015c58;">Жами</th>
+                    @forelse($typeColumns as $type)
+                        <th style="background:#019b96;">{{ $type }}</th>
+                    @empty
+                        <th style="background:#019b96;">Турлар</th>
+                    @endforelse
                 </tr>
             </thead>
             <tbody>
@@ -196,30 +234,29 @@
                 <tr class="total-row">
                     <td class="district-name">Жами</td>
                     <td class="num">{{ number_format($totals['grand_total'], 2, '.', ' ') }}</td>
-                    <td class="num">{{ number_format($totals['fines_total'], 2, '.', ' ') }}</td>
-                    <td class="num">{{ number_format($totals['fine_10_safe_city'], 2, '.', ' ') }}</td>
-                    <td class="num">{{ number_format($totals['fine_35_auto'], 2, '.', ' ') }}</td>
-                    <td class="num">{{ number_format($totals['fine_5_within_year'], 2, '.', ' ') }}</td>
-                    <td class="num">{{ number_format($totals['fine_10_after_year'], 2, '.', ' ') }}</td>
-                    <td class="num">{{ number_format($totals['ad_20'], 2, '.', ' ') }}</td>
-                </tr>
-                <tr class="incl-row">
-                    <td colspan="8" style="padding: 6px 12px;">жумладан:</td>
+                    @forelse($typeColumns as $type)
+                        @php $val = (float) ($totals['types'][$type] ?? 0); @endphp
+                        <td class="num">{{ $val > 0 ? number_format($val, 2, '.', ' ') : '—' }}</td>
+                    @empty
+                        <td class="num">—</td>
+                    @endforelse
                 </tr>
 
                 {{-- District rows --}}
-                @foreach($summaryData as $row)
-                <tr>
-                    <td class="district-name">{{ $row['district'] }}</td>
-                    <td class="num">{{ number_format($row['grand_total'], 2, '.', ' ') }}</td>
-                    <td class="num">{{ $row['fines_total'] > 0 ? number_format($row['fines_total'], 2, '.', ' ') : '—' }}</td>
-                    <td class="num">{{ $row['fine_10_safe_city'] > 0 ? number_format($row['fine_10_safe_city'], 2, '.', ' ') : '—' }}</td>
-                    <td class="num">{{ $row['fine_35_auto'] > 0 ? number_format($row['fine_35_auto'], 2, '.', ' ') : '—' }}</td>
-                    <td class="num">{{ $row['fine_5_within_year'] > 0 ? number_format($row['fine_5_within_year'], 2, '.', ' ') : '—' }}</td>
-                    <td class="num">{{ $row['fine_10_after_year'] > 0 ? number_format($row['fine_10_after_year'], 2, '.', ' ') : '—' }}</td>
-                    <td class="num">{{ $row['ad_20'] > 0 ? number_format($row['ad_20'], 2, '.', ' ') : '—' }}</td>
-                </tr>
-                @endforeach
+                @forelse($summaryData as $row)
+                    <tr>
+                        <td class="district-name">{{ $row['district'] }}</td>
+                        <td class="num">{{ number_format($row['grand_total'], 2, '.', ' ') }}</td>
+                        @foreach($typeColumns as $type)
+                            @php $val = (float) ($row['types'][$type] ?? 0); @endphp
+                            <td class="num">{{ $val > 0 ? number_format($val, 2, '.', ' ') : '—' }}</td>
+                        @endforeach
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="{{ 2 + max(count($typeColumns), 1) }}" style="text-align:center;padding:30px;color:#aab0bb;">Маълумот йўқ</td>
+                    </tr>
+                @endforelse
             </tbody>
         </table>
     </div>

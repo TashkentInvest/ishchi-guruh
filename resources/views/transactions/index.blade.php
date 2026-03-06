@@ -295,6 +295,11 @@
                 <input type="text" name="search" placeholder="Қидириш..." value="{{ request('search') }}" onkeypress="if(event.key==='Enter') document.getElementById('filterForm').submit()">
             </div>
             <div class="filters">
+                <select name="status" class="filter-btn" style="background: #fff; color: #333; border: 1px solid #dcddde;" onchange="document.getElementById('filterForm').submit()">
+                    <option value="">Барча манбалар</option>
+                    <option value="jamgarma" {{ request('status') == 'jamgarma' ? 'selected' : '' }}>Jamgarma</option>
+                    <option value="gazna" {{ request('status') == 'gazna' ? 'selected' : '' }}>Gazna</option>
+                </select>
                 <select name="district" class="filter-btn" style="background: #fff; color: #333; border: 1px solid #dcddde;" onchange="document.getElementById('filterForm').submit()">
                     <option value="">Барча туманлар</option>
                     @foreach($districts as $district)
@@ -387,13 +392,19 @@
                             <svg viewBox="0 0 16 16" fill="none"><path d="M8 14a.605.605 0 01-.467-.2L4.2 10.466a.644.644 0 010-.933.644.644 0 01.933 0L8 12.4l2.867-2.867a.644.644 0 01.933 0 .644.644 0 010 .933L8.467 13.8A.605.605 0 018 14zM4.667 6.667a.605.605 0 01-.467-.2.644.644 0 010-.934L7.533 2.2a.644.644 0 01.934 0L11.8 5.533a.644.644 0 010 .934.644.644 0 01-.933 0L8 3.6 5.133 6.467a.605.605 0 01-.466.2z" fill="#78829D"/></svg>
                         </a>
                     </th>
+                    <th>
+                        <a href="{{ sortUrl('status', $qBase, $sortField, $nextDir) }}" class="th-inner" style="text-decoration:none; color:inherit;">
+                            Манба
+                            <svg viewBox="0 0 16 16" fill="none"><path d="M8 14a.605.605 0 01-.467-.2L4.2 10.466a.644.644 0 010-.933.644.644 0 01.933 0L8 12.4l2.867-2.867a.644.644 0 01.933 0 .644.644 0 010 .933L8.467 13.8A.605.605 0 018 14zM4.667 6.667a.605.605 0 01-.467-.2.644.644 0 010-.934L7.533 2.2a.644.644 0 01.934 0L11.8 5.533a.644.644 0 010 .934.644.644 0 01-.933 0L8 3.6 5.133 6.467a.605.605 0 01-.466.2z" fill="#78829D"/></svg>
+                        </a>
+                    </th>
                     <th>Тўлов мақсади</th>
                     <th>&nbsp;</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($transactions as $transaction)
-                    <tr onclick="openDrawer({{ $transaction->id }}, '{{ addslashes($transaction->district) }}', '{{ $transaction->date ? date('d.m.Y', strtotime($transaction->date)) : '' }}', '{{ addslashes($transaction->type) }}', '{{ $transaction->month }}/{{ $transaction->year }}', '{{ addslashes($transaction->flow) }}', '{{ number_format($transaction->amount, 0, ',', ' ') }}', `{{ addslashes($transaction->payment_purpose) }}`" style="cursor:pointer;">
+                    <tr onclick="openDrawer({{ $transaction->id }}, '{{ addslashes($transaction->district) }}', '{{ $transaction->date ? date('d.m.Y', strtotime($transaction->date)) : '' }}', '{{ addslashes($transaction->type) }}', '{{ $transaction->month }}/{{ $transaction->year }}', '{{ addslashes($transaction->flow) }}', '{{ number_format($transaction->amount, 0, ',', ' ') }}', '{{ $transaction->status }}', `{{ addslashes($transaction->payment_purpose) }}`)" style="cursor:pointer;">
                         <td>#{{ $transaction->id }}</td>
                         <td>{{ $transaction->date ? date('d.m.Y', strtotime($transaction->date)) : '—' }}</td>
                         <td>{{ $transaction->district }}</td>
@@ -405,12 +416,17 @@
                             </span>
                         </td>
                         <td style="font-weight: 600;">{{ number_format($transaction->amount, 0, ',', ' ') }} сўм</td>
+                        <td>
+                            <span class="status outline {{ $transaction->status === 'gazna' ? 'warning' : 'success' }}">
+                                {{ ucfirst($transaction->status ?? 'jamgarma') }}
+                            </span>
+                        </td>
                         <td style="max-width: 250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="{{ $transaction->payment_purpose }}">
                             {{ Str::limit($transaction->payment_purpose, 40) }}
                         </td>
                         <td onclick="event.stopPropagation()">
                             <button type="button" class="action-btn" title="Кўриш"
-                                onclick="openDrawer({{ $transaction->id }}, '{{ addslashes($transaction->district) }}', '{{ $transaction->date ? date('d.m.Y', strtotime($transaction->date)) : '' }}', '{{ addslashes($transaction->type) }}', '{{ $transaction->month }}/{{ $transaction->year }}', '{{ addslashes($transaction->flow) }}', '{{ number_format($transaction->amount, 0, ',', ' ') }}', `{{ addslashes($transaction->payment_purpose) }}`)">
+                                onclick="openDrawer({{ $transaction->id }}, '{{ addslashes($transaction->district) }}', '{{ $transaction->date ? date('d.m.Y', strtotime($transaction->date)) : '' }}', '{{ addslashes($transaction->type) }}', '{{ $transaction->month }}/{{ $transaction->year }}', '{{ addslashes($transaction->flow) }}', '{{ number_format($transaction->amount, 0, ',', ' ') }}', '{{ $transaction->status }}', `{{ addslashes($transaction->payment_purpose) }}`)">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                     <rect x="2.997" y="2.997" width="18.008" height="18.008" rx="5" stroke-linecap="round" stroke-linejoin="round"/>
                                     <path d="M12.5 8.499h3.002v3M11.5 15.502H8.499V12.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -420,7 +436,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" style="text-align: center; padding: 40px; color: #6e788b;">
+                        <td colspan="10" style="text-align: center; padding: 40px; color: #6e788b;">
                             Маълумот топилмади
                         </td>
                     </tr>
@@ -459,7 +475,7 @@
 
 @push('scripts')
 <script>
-function openDrawer(id, district, date, type, monthYear, flow, amount, purpose) {
+function openDrawer(id, district, date, type, monthYear, flow, amount, source, purpose) {
     const items = [
         ['ID', '#' + id],
         ['Сана', date],
@@ -468,6 +484,7 @@ function openDrawer(id, district, date, type, monthYear, flow, amount, purpose) 
         ['Ой / Йил', monthYear],
         ['Поток', flow, flow.includes('Приход') ? '#0bc33f' : '#e63260'],
         ['Сумма', amount + " сўм"],
+        ['Манба', source ? source.toUpperCase() : 'JAMGARMA'],
         ["Тўлов мақсади", purpose],
     ];
 

@@ -92,5 +92,38 @@ php -d memory_limit=512M artisan db:seed --class=TransactionsSeeder
 
 ```
 php artisan migrate
-php artisan make:admin --name="Administrator" --email="admin@toshkentinvest.uz" --password="YourStrongPassword"
+php artisan make:admin --name="Administrator" --email="superadmin@example.com" --password="teamdevs"
 ```
+
+## Performance Optimization Checklist (Applied)
+
+The project now includes the following optimizations for slow-page debugging:
+
+1. **Strict Eloquent mode** via `Model::shouldBeStrict()` in local/debug to catch lazy-loading / N+1 issues early.
+2. **Laravel Debugbar** installed (`barryvdh/laravel-debugbar`) for query count + execution timing.
+3. **Column-select optimization** on heavy user listing queries (`select([...])` instead of `select *`).
+4. **Pagination optimization** using `simplePaginate()` for large tables.
+5. **Indexing for frequent filters** (status/role/date and status-aware transaction report filters).
+6. **Production slow query logging** with configurable threshold and dedicated `slow_queries` log channel.
+
+### Debugbar usage (local)
+
+Ensure these are enabled in `.env`:
+
+```env
+APP_ENV=local
+APP_DEBUG=true
+DEBUGBAR_ENABLED=true
+```
+
+### Slow query logging (production)
+
+Set in `.env`:
+
+```env
+DB_LOG_SLOW_QUERIES=true
+DB_SLOW_QUERY_TIME_MS=250
+DB_SLOW_QUERY_LOG_CHANNEL=slow_queries
+```
+
+Slow queries are written to `storage/logs/slow-queries-*.log`.

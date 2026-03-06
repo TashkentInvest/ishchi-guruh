@@ -8,13 +8,13 @@ use Illuminate\Support\Facades\DB;
 class ImportTransactions extends Command
 {
     protected $signature   = 'transactions:import {--fresh : Truncate table before importing}';
-    protected $description = 'Import transactions from DATASET.csv with low memory footprint';
+    protected $description = 'Import transactions from DATASET_JAMGARMA.csv with low memory footprint';
 
     public function handle(): int
     {
         ini_set('memory_limit', '512M');
 
-        $csvPath = storage_path('app/public/detalization/DATASET.csv');
+        $csvPath = storage_path('app/public/detalization/DATASET_JAMGARMA.csv');
 
         if (!file_exists($csvPath)) {
             $this->error("CSV not found: {$csvPath}");

@@ -85,8 +85,8 @@
                 tumanlari bo'yicha moliyaviy operatsiyalarni kuzatish va tahlil qilish.
             </div>
             <div style="font-size:0.82rem;color:#6e788b;line-height:1.8">
-                <div>• DATASET.csv - asosiy tranzaksiyalar ma'lumoti</div>
-                <div>• formulas.csv - hisoblash formulalari</div>
+                <div>• DATASET_JAMGARMA.csv - asosiy tranzaksiyalar ma'lumoti</div>
+                <div>• FORMULAS_JAMGARMA.csv - hisoblash formulalari</div>
                 <div>• Tumanlar bo'yicha filtrlash imkoniyati</div>
                 <div>• Oy/yil bo'yicha guruhlash</div>
             </div>

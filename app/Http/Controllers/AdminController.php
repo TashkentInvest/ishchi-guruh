@@ -42,7 +42,19 @@ class AdminController extends Controller
     // User management list
     public function users(Request $request)
     {
-        $query = User::latest();
+        $query = User::query()
+            ->select([
+                'id',
+                'name',
+                'email',
+                'pinfl',
+                'role',
+                'status',
+                'serial_number',
+                'certificate_valid_to',
+                'created_at',
+            ])
+            ->latest('id');
 
         if ($search = $request->input('q')) {
             $query->where(function ($q) use ($search) {
@@ -60,7 +72,7 @@ class AdminController extends Controller
             $query->where('status', $status);
         }
 
-        $users = $query->paginate(20)->withQueryString();
+        $users = $query->simplePaginate(20)->appends($request->query());
         $allRoles = self::roleOptions();
         $allStatuses = self::statusOptions();
 

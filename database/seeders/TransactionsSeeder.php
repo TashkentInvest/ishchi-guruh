@@ -9,59 +9,90 @@ class TransactionsSeeder extends Seeder
 {
     public function run(): void
     {
-        // Raise memory limit for large CSV import
         ini_set('memory_limit', '512M');
-
-        $csvPath = storage_path('app/public/detalization/DATASET.csv');
-
-        if (!file_exists($csvPath)) {
-            $this->command->error("CSV file not found at: {$csvPath}");
-            return;
-        }
-
-        $this->command->info('Starting to import transactions from CSV...');
-
-        // Disable query log to avoid memory accumulation
         DB::connection()->disableQueryLog();
 
-        $handle = fopen($csvPath, 'r');
-        if (!$handle) {
-            $this->command->error('Failed to open CSV file');
-            return;
-        }
+        $sources = [
+            [
+                'path' => storage_path('app/public/detalization/DATASET_JAMGARMA.csv'),
+                'status' => 'jamgarma',
+            ],
+            [
+                'path' => storage_path('app/public/detalization/DATASET_GAZNA.csv'),
+                'status' => 'gazna',
+            ],
+        ];
 
-        // Read header
-        $header = fgetcsv($handle, 0, ';');
-        if (!$header) {
-            $this->command->error('Failed to read CSV header');
-            fclose($handle);
-            return;
-        }
+        $totalImported = 0;
 
-        // Pre-compute timestamps once (avoid Carbon overhead per row)
-        $now = date('Y-m-d H:i:s');
+        foreach ($sources as $source) {
+            $csvPath = $source['path'];
+            $status = $source['status'];
 
-        $count   = 0;
-        $batch   = [];
-        $batchSize = 500; // Smaller batches = less peak memory per flush
-
-        while (($row = fgetcsv($handle, 0, ';')) !== false) {
-            if (count($row) < 10) {
+            if (!file_exists($csvPath)) {
+                $this->command->warn("CSV file not found (skipped): {$csvPath}");
                 continue;
             }
 
+            $fileName = basename($csvPath);
+            $this->command->info("Starting {$status} import from {$fileName}...");
+
+            $imported = $this->importCsvFile($csvPath, $status);
+            $totalImported += $imported;
+
+            $this->command->info("Imported {$imported} records from {$fileName}.");
+        }
+
+        $this->command->info("Successfully imported {$totalImported} transactions in total!");
+    }
+
+    private function importCsvFile(string $csvPath, string $status): int
+    {
+        $handle = fopen($csvPath, 'r');
+        if (!$handle) {
+            $this->command->error("Failed to open CSV file: {$csvPath}");
+            return 0;
+        }
+
+        $header = fgetcsv($handle, 0, ';');
+        if (!$header) {
+            $this->command->error("Failed to read CSV header: {$csvPath}");
+            fclose($handle);
+            return 0;
+        }
+
+        $headerMap = $this->buildHeaderMap($header);
+
+        $now = date('Y-m-d H:i:s');
+        $count = 0;
+        $batch = [];
+        $batchSize = 500;
+
+        while (($row = fgetcsv($handle, 0, ';')) !== false) {
+            if ($this->isEmptyRow($row)) {
+                continue;
+            }
+
+            $date = $this->parseDate($this->valueByAliases($row, $headerMap, ['дата']));
+            if (!$date) {
+                continue;
+            }
+
+            $dayDate = $this->parseDate($this->valueByAliases($row, $headerMap, ['день', 'дата'])) ?? $date;
+
             $batch[] = [
-                'date'            => $this->parseDate($row[0] ?? ''),
-                'debit_amount'    => $this->parseAmount($row[1] ?? '0'),
-                'credit_amount'   => $this->parseAmount($row[2] ?? '0'),
-                'payment_purpose' => mb_substr($row[3] ?? '', 0, 500),
-                'flow'            => $row[4] ?? '',
-                'month'           => $row[5] ?? '',
-                'amount'          => $this->parseAmount($row[6] ?? '0'),
-                'district'        => $row[7] ?? '',
-                'type'            => $row[8] ?? '',
-                'year'            => (int) ($row[9] ?? 0),
-                'day_date'        => $this->parseDate($row[10] ?? $row[0] ?? ''),
+                'date'            => $date,
+                'debit_amount'    => $this->parseAmount($this->valueByAliases($row, $headerMap, ['сумма дебет'])),
+                'credit_amount'   => $this->parseAmount($this->valueByAliases($row, $headerMap, ['сумма кредит'])),
+                'payment_purpose' => mb_substr($this->valueByAliases($row, $headerMap, ['назначение платежа', 'детали платежи']), 0, 500),
+                'flow'            => $this->valueByAliases($row, $headerMap, ['поток']),
+                'month'           => $this->valueByAliases($row, $headerMap, ['месяц']),
+                'amount'          => $this->parseAmount($this->valueByAliases($row, $headerMap, ['сумма'])),
+                'district'        => $this->valueByAliases($row, $headerMap, ['район']),
+                'type'            => $this->valueByAliases($row, $headerMap, ['тип']),
+                'year'            => (int) $this->valueByAliases($row, $headerMap, ['год', 'фин. год']),
+                'day_date'        => $dayDate,
+                'status'          => $status,
                 'created_at'      => $now,
                 'updated_at'      => $now,
             ];
@@ -71,7 +102,7 @@ class TransactionsSeeder extends Seeder
             if (count($batch) >= $batchSize) {
                 DB::table('transactions')->insert($batch);
                 $batch = [];
-                gc_collect_cycles(); // Free memory after each batch
+                gc_collect_cycles();
 
                 if ($count % 10000 === 0) {
                     $this->command->info("Imported {$count} records...");
@@ -79,16 +110,59 @@ class TransactionsSeeder extends Seeder
             }
         }
 
-        // Insert remaining
         if (!empty($batch)) {
             DB::table('transactions')->insert($batch);
-            $batch = [];
         }
 
         fclose($handle);
         gc_collect_cycles();
 
-        $this->command->info("Successfully imported {$count} transactions!");
+        return $count;
+    }
+
+    private function buildHeaderMap(array $header): array
+    {
+        $map = [];
+
+        foreach ($header as $index => $columnName) {
+            $normalized = $this->normalizeHeader((string) $columnName);
+            if ($normalized !== '' && !array_key_exists($normalized, $map)) {
+                $map[$normalized] = $index;
+            }
+        }
+
+        return $map;
+    }
+
+    private function valueByAliases(array $row, array $headerMap, array $aliases): string
+    {
+        foreach ($aliases as $alias) {
+            $key = $this->normalizeHeader($alias);
+            if (array_key_exists($key, $headerMap)) {
+                return trim((string) ($row[$headerMap[$key]] ?? ''));
+            }
+        }
+
+        return '';
+    }
+
+    private function normalizeHeader(string $header): string
+    {
+        $header = str_replace("\xEF\xBB\xBF", '', $header);
+        $header = preg_replace('/\s+/u', ' ', trim($header));
+
+        return mb_strtolower($header);
+    }
+
+    private function isEmptyRow(array $row): bool
+    {
+        foreach ($row as $value) {
+            if (trim((string) $value) !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function parseDate(string $dateStr): ?string
@@ -112,9 +186,13 @@ class TransactionsSeeder extends Seeder
             return 0.0;
         }
 
-        $amountStr = str_replace([' ', '\xc2\xa0'], '', trim($amountStr));
+        $amountStr = str_replace(["\xC2\xA0", ' '], '', trim($amountStr));
         $amountStr = str_replace(',', '.', $amountStr);
 
-        return (float) $amountStr;
+        if ($amountStr === '-' || $amountStr === '—' || $amountStr === '') {
+            return 0.0;
+        }
+
+        return is_numeric($amountStr) ? (float) $amountStr : 0.0;
     }
 }

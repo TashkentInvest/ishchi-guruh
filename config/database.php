@@ -110,6 +110,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Slow Query Logging
+    |--------------------------------------------------------------------------
+    |
+    | Enable in production to log queries exceeding the threshold (milliseconds)
+    | into a dedicated channel.
+    |
+    */
+
+    'log_slow_queries' => env('DB_LOG_SLOW_QUERIES', false),
+    'slow_query_time_ms' => (int) env('DB_SLOW_QUERY_TIME_MS', 250),
+    'slow_query_log_channel' => env('DB_SLOW_QUERY_LOG_CHANNEL', 'slow_queries'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Redis Databases
     |--------------------------------------------------------------------------
     |

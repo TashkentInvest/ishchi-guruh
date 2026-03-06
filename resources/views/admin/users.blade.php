@@ -45,7 +45,7 @@
 
 <div class="block">
     <div class="section-heading">
-        Foydalanuvchilar <span class="sbadge sbadge-gray" style="font-size:0.8rem">{{ $users->total() }}</span>
+        Foydalanuvchilar <span class="sbadge sbadge-gray" style="font-size:0.8rem">{{ $users->count() }}</span>
     </div>
     <div class="platon-table-wrap">
         <table class="platon-table">
