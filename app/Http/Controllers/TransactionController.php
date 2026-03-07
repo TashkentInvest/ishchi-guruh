@@ -44,7 +44,7 @@ class TransactionController extends Controller
 
         $svodFilter = trim((string) $request->query('svod_filter', ''));
         if ($svodFilter !== '') {
-            $svodCondition = $this->resolveSvodFilterCondition($svodFilter);
+            $svodCondition = $this->resolveSvodFilterCondition($svodFilter, $status);
             if ($svodCondition !== null) {
                 $where[] = '(' . $svodCondition['sql'] . ')';
                 $params = array_merge($params, $svodCondition['bindings']);
@@ -117,27 +117,26 @@ class TransactionController extends Controller
             ];
         });
 
-        // Global stats — single raw query, cached
-        $summary = Cache::remember("transaction_summary_{$cacheSuffix}", self::CACHE_FILTERS, function () use ($status) {
-            $query = "SELECT
-                    SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) as total_credit,
-                    SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) as total_debit,
-                    SUM(CASE WHEN flow='Приход' THEN 1 ELSE 0 END) as credit_records,
-                    SUM(CASE WHEN flow='Расход' THEN 1 ELSE 0 END) as debit_records,
-                    COUNT(*) as total_records
-                 FROM transactions";
-            $queryParams = [];
+        // Summary cards must match currently visible list filters
+        $summaryRow = DB::selectOne(
+            "SELECT
+                SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) as total_credit,
+                SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) as total_debit,
+                SUM(CASE WHEN flow='Приход' THEN 1 ELSE 0 END) as credit_records,
+                SUM(CASE WHEN flow='Расход' THEN 1 ELSE 0 END) as debit_records,
+                COUNT(*) as total_records
+             FROM transactions
+             {$whereSQL}",
+            $params
+        );
 
-            if ($status) {
-                $query .= " WHERE status = ?";
-                $queryParams[] = $status;
-            }
-
-            return (array) DB::selectOne(
-                $query,
-                $queryParams
-            );
-        });
+        $summary = [
+            'total_credit' => (float) ($summaryRow->total_credit ?? 0),
+            'total_debit' => (float) ($summaryRow->total_debit ?? 0),
+            'credit_records' => (int) ($summaryRow->credit_records ?? 0),
+            'debit_records' => (int) ($summaryRow->debit_records ?? 0),
+            'total_records' => (int) ($summaryRow->total_records ?? 0),
+        ];
 
         return view('transactions.index', [
             'transactions' => $transactions,
@@ -552,62 +551,9 @@ class TransactionController extends Controller
                 $bucketToTypeKey[$column['bucket']] = $column['type'];
             }
 
-            $resolveBucket = function (string $type): ?string {
-                $matches = [];
-                preg_match('/(\d{6,7})/u', $type, $matches);
-                $code = $matches[1] ?? null;
-
-                if ($code) {
-                    return match ($code) {
-                        '3430188' => 'col_3430188',
-                        '3430482' => 'col_3430482',
-                        '3430481' => 'col_3430481',
-                        '326700' => 'col_326700',
-                        '3430135' => 'col_3430135',
-                        '3430417' => 'col_3430417',
-                        '3430465' => 'col_3430465',
-                        '3430189' => 'col_3430189',
-                        '3422292' => 'col_3422292',
-                        default => null,
-                    };
-                }
-
-                $normalized = mb_strtolower(trim($type));
-
-                if ($normalized === '' || $normalized === '#знач!') {
-                    return null;
-                }
-
-                if (str_contains($normalized, 'қорайтириш') || (str_contains($normalized, 'реклама') && str_contains($normalized, '20'))) {
-                    return 'col_3422292';
-                }
-
-                if (str_contains($normalized, 'автомат') && str_contains($normalized, '35')) {
-                    return 'col_3430135';
-                }
-
-                if (str_contains($normalized, 'хавфсиз') && str_contains($normalized, '10')) {
-                    return 'col_3430417';
-                }
-
-                if (str_contains($normalized, '1 йил ичида') && str_contains($normalized, '15')) {
-                    return 'col_3430465';
-                }
-
-                if (str_contains($normalized, '1 йилдан кейин') && str_contains($normalized, '10')) {
-                    return 'col_3430189';
-                }
-
-                if (str_contains($normalized, '1 йил ичида') && str_contains($normalized, '5')) {
-                    return 'col_3430188';
-                }
-
-                return null;
-            };
-
             $bucketByType = [];
             foreach ($data['typeColumns'] as $type) {
-                $bucketByType[(string) $type] = $resolveBucket((string) $type);
+                $bucketByType[(string) $type] = $this->resolveGaznaSvodBucket((string) $type);
             }
 
             $orderedTypes = array_column($fixedTypeColumns, 'type');
@@ -1040,6 +986,7 @@ class TransactionController extends Controller
             Cache::forget("summary_timeline_data_{$suffix}");
             Cache::forget("jamgarma_first_svod_data_{$suffix}");
             Cache::forget("dashboard_data_{$suffix}");
+            Cache::forget("gazna_svod_bucket_types_{$suffix}");
         }
 
         Cache::forget('gazna_svod3_data_gazna');
@@ -1053,6 +1000,9 @@ class TransactionController extends Controller
         Cache::forget('jamgarma_first_svod_data');
         Cache::forget('jamgarma_first_svod_data_jamgarma');
         Cache::forget('dashboard_data');
+        Cache::forget('gazna_svod_bucket_types_all');
+        Cache::forget('gazna_svod_bucket_types_jamgarma');
+        Cache::forget('gazna_svod_bucket_types_gazna');
     }
 
     private function buildJamgarmaFirstSvodData(string $status): array
@@ -1202,7 +1152,7 @@ class TransactionController extends Controller
         ];
     }
 
-    private function resolveSvodFilterCondition(string $filter): ?array
+    private function resolveSvodFilterCondition(string $filter, ?string $status = null): ?array
     {
         return match ($filter) {
             'col_3430188',
@@ -1213,10 +1163,7 @@ class TransactionController extends Controller
             'col_3430189',
             'col_3430465',
             'col_3422292',
-            'col_3430135' => [
-                'sql' => '(' . $this->gaznaSvodBucketCaseSql() . ') = ?',
-                'bindings' => [$filter],
-            ],
+            'col_3430135' => $this->buildGaznaSvodFilterCondition($filter, $status),
             'jam_penalties_total' => $this->buildSvodTypeCondition([
                 '3430417',
                 '3430135',
@@ -1251,28 +1198,117 @@ class TransactionController extends Controller
         };
     }
 
-    private function gaznaSvodBucketCaseSql(): string
+    private function buildGaznaSvodFilterCondition(string $bucket, ?string $status): array
     {
-        return "
-            CASE
-                WHEN type = '3430188' OR type LIKE '%3430188%' THEN 'col_3430188'
-                WHEN type = '3430482' OR type LIKE '%3430482%' THEN 'col_3430482'
-                WHEN type = '3430481' OR type LIKE '%3430481%' THEN 'col_3430481'
-                WHEN type = '326700' OR type LIKE '%326700%' THEN 'col_326700'
-                WHEN type = '3430135' OR type LIKE '%3430135%' THEN 'col_3430135'
-                WHEN type = '3430417' OR type LIKE '%3430417%' THEN 'col_3430417'
-                WHEN type = '3430465' OR type LIKE '%3430465%' THEN 'col_3430465'
-                WHEN type = '3430189' OR type LIKE '%3430189%' THEN 'col_3430189'
-                WHEN type = '3422292' OR type LIKE '%3422292%' THEN 'col_3422292'
-                WHEN (LOWER(type) LIKE '%қорайтириш%' OR (LOWER(type) LIKE '%реклама%' AND LOWER(type) LIKE '%20%')) THEN 'col_3422292'
-                WHEN (LOWER(type) LIKE '%автомат%' AND LOWER(type) LIKE '%35%') THEN 'col_3430135'
-                WHEN (LOWER(type) LIKE '%хавфсиз%' AND LOWER(type) LIKE '%10%') THEN 'col_3430417'
-                WHEN (LOWER(type) LIKE '%1 йил ичида%' AND LOWER(type) LIKE '%15%') THEN 'col_3430465'
-                WHEN (LOWER(type) LIKE '%1 йилдан кейин%' AND LOWER(type) LIKE '%10%') THEN 'col_3430189'
-                WHEN (LOWER(type) LIKE '%1 йил ичида%' AND LOWER(type) LIKE '%5%') THEN 'col_3430188'
-                ELSE NULL
-            END
-        ";
+        $cacheSuffix = $this->statusCacheSuffix($status);
+
+        $typesByBucket = Cache::remember("gazna_svod_bucket_types_{$cacheSuffix}", self::CACHE_FILTERS, function () use ($status) {
+            $query = "
+                SELECT DISTINCT type
+                FROM transactions
+                WHERE type IS NOT NULL
+                  AND type <> ''
+            ";
+            $params = [];
+
+            if ($status) {
+                $query .= " AND status = ?";
+                $params[] = $status;
+            }
+
+            $rows = DB::select($query, $params);
+            $result = [];
+
+            foreach ($rows as $row) {
+                $type = (string) $row->type;
+                $resolvedBucket = $this->resolveGaznaSvodBucket($type);
+
+                if ($resolvedBucket === null) {
+                    continue;
+                }
+
+                if (!isset($result[$resolvedBucket])) {
+                    $result[$resolvedBucket] = [];
+                }
+
+                $result[$resolvedBucket][$type] = true;
+            }
+
+            foreach ($result as $key => $types) {
+                $result[$key] = array_keys($types);
+            }
+
+            return $result;
+        });
+
+        $types = $typesByBucket[$bucket] ?? [];
+        if (empty($types)) {
+            return [
+                'sql' => '1 = 0',
+                'bindings' => [],
+            ];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($types), '?'));
+
+        return [
+            'sql' => "type IN ({$placeholders})",
+            'bindings' => array_values($types),
+        ];
+    }
+
+    private function resolveGaznaSvodBucket(string $type): ?string
+    {
+        $matches = [];
+        preg_match('/(\d{6,7})/u', $type, $matches);
+        $code = $matches[1] ?? null;
+
+        if ($code) {
+            return match ($code) {
+                '3430188' => 'col_3430188',
+                '3430482' => 'col_3430482',
+                '3430481' => 'col_3430481',
+                '326700' => 'col_326700',
+                '3430135' => 'col_3430135',
+                '3430417' => 'col_3430417',
+                '3430465' => 'col_3430465',
+                '3430189' => 'col_3430189',
+                '3422292' => 'col_3422292',
+                default => null,
+            };
+        }
+
+        $normalized = mb_strtolower(trim($type));
+
+        if ($normalized === '' || $normalized === '#знач!') {
+            return null;
+        }
+
+        if (str_contains($normalized, 'қорайтириш') || (str_contains($normalized, 'реклама') && str_contains($normalized, '20'))) {
+            return 'col_3422292';
+        }
+
+        if (str_contains($normalized, 'автомат') && str_contains($normalized, '35')) {
+            return 'col_3430135';
+        }
+
+        if (str_contains($normalized, 'хавфсиз') && str_contains($normalized, '10')) {
+            return 'col_3430417';
+        }
+
+        if (str_contains($normalized, '1 йил ичида') && str_contains($normalized, '15')) {
+            return 'col_3430465';
+        }
+
+        if (str_contains($normalized, '1 йилдан кейин') && str_contains($normalized, '10')) {
+            return 'col_3430189';
+        }
+
+        if (str_contains($normalized, '1 йил ичида') && str_contains($normalized, '5')) {
+            return 'col_3430188';
+        }
+
+        return null;
     }
 
     private function buildSvodTypeCondition(array $codes = [], array $likeGroups = []): array
