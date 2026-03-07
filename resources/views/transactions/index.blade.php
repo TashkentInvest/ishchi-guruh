@@ -263,6 +263,25 @@
         color: #15191e;
     }
 
+    .stat-card .meta {
+        margin-top: 6px;
+        font-size: 0.78rem;
+        color: #6e788b;
+        font-weight: 500;
+    }
+
+    .stat-link {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px dashed transparent;
+        transition: color .12s ease, border-color .12s ease;
+    }
+
+    .stat-link:hover {
+        color: #017570;
+        border-bottom-color: #017570;
+    }
+
     .stat-card.primary .value { color: #018c87; }
     .stat-card.info .value { color: #1471f0; }
     .stat-card.success .value { color: #0bc33f; }
@@ -270,19 +289,30 @@
 @endpush
 
 @section('content')
+@php
+    $statLink = function (array $overrides = []) {
+        $query = array_merge(request()->query(), $overrides);
+        unset($query['page']);
+
+        return route('home', array_filter($query, static fn ($value) => $value !== null && $value !== ''));
+    };
+@endphp
 <!-- Summary Stats -->
 <div class="stats-row">
     <div class="stat-card primary">
         <div class="label">Жами Кредит</div>
-        <div class="value">{{ number_format($summary['total_credit'], 0, ',', ' ') }} сўм</div>
+        <div class="value"><a href="{{ $statLink(['flow' => 'Приход']) }}" class="stat-link">{{ number_format($summary['total_credit'], 0, ',', ' ') }} сўм</a></div>
+        <div class="meta">{{ number_format($summary['credit_records'] ?? 0, 0, ',', ' ') }} та операция</div>
     </div>
     <div class="stat-card info">
         <div class="label">Жами Дебет</div>
-        <div class="value">{{ number_format($summary['total_debit'], 0, ',', ' ') }} сўм</div>
+        <div class="value"><a href="{{ $statLink(['flow' => 'Расход']) }}" class="stat-link">{{ number_format($summary['total_debit'], 0, ',', ' ') }} сўм</a></div>
+        <div class="meta">{{ number_format($summary['debit_records'] ?? 0, 0, ',', ' ') }} та операция</div>
     </div>
     <div class="stat-card success">
         <div class="label">Жами Йозувлар</div>
-        <div class="value">{{ number_format($summary['total_records'], 0, ',', ' ') }}</div>
+        <div class="value"><a href="{{ $statLink(['flow' => null]) }}" class="stat-link">{{ number_format($summary['total_records'], 0, ',', ' ') }}</a></div>
+        <div class="meta">Барча операциялар</div>
     </div>
 </div>
 
@@ -321,6 +351,19 @@
                     @foreach($months as $month)
                         <option value="{{ $month }}" {{ request('month') == $month ? 'selected' : '' }}>
                             {{ $month }}
+                        </option>
+                    @endforeach
+                </select>
+                <select name="flow" class="filter-btn" style="background: #fff; color: #333; border: 1px solid #dcddde;" onchange="document.getElementById('filterForm').submit()">
+                    <option value="">Барча потоклар</option>
+                    <option value="Приход" {{ request('flow') == 'Приход' ? 'selected' : '' }}>Приход</option>
+                    <option value="Расход" {{ request('flow') == 'Расход' ? 'selected' : '' }}>Расход</option>
+                </select>
+                <select name="svod_filter" class="filter-btn" style="background: #fff; color: #333; border: 1px solid #dcddde; max-width: 280px;" onchange="document.getElementById('filterForm').submit()">
+                    <option value="">Свод фильтр (тур/%)</option>
+                    @foreach(($svodFilters ?? []) as $svodKey => $svodLabel)
+                        <option value="{{ $svodKey }}" {{ request('svod_filter') === $svodKey ? 'selected' : '' }}>
+                            {{ $svodLabel }}
                         </option>
                     @endforeach
                 </select>

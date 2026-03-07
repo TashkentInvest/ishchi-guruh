@@ -118,6 +118,22 @@
         font-variant-numeric: tabular-nums;
     }
 
+    .cell-link {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px dashed transparent;
+        transition: color .12s ease, border-color .12s ease;
+    }
+
+    .cell-link:hover {
+        color: #016d69;
+        border-bottom-color: #016d69;
+    }
+
+    .district-link {
+        font-weight: 600;
+    }
+
     .report-table .total-row td {
         font-weight: 800;
         background: #e8f4f3 !important;
@@ -180,6 +196,24 @@
 
     $typeMeta = $typeMeta ?? [];
     $typeCount = max(count($typeMeta), 1);
+
+    $detailUrl = function (?string $district = null, ?string $svodFilter = null, array $extra = []) {
+        $query = array_merge([
+            'status' => 'gazna',
+            'sort' => 'amount',
+            'dir' => 'desc',
+        ], $extra);
+
+        if ($district !== null && $district !== '') {
+            $query['district'] = $district;
+        }
+
+        if ($svodFilter !== null && $svodFilter !== '') {
+            $query['svod_filter'] = $svodFilter;
+        }
+
+        return route('home', array_filter($query, static fn ($value) => $value !== null && $value !== ''));
+    };
 @endphp
 
 <div class="report-wrap">
@@ -227,17 +261,17 @@
             <tbody>
                 @if(!empty($summaryRows))
                     <tr class="total-row">
-                        <td>Жами</td>
-                        <td class="num">{{ $fmt($totals['total_receipts'] ?? 0) }}</td>
+                        <td><a href="{{ $detailUrl(null, null, []) }}" class="cell-link district-link">Жами</a></td>
+                        <td class="num"><a href="{{ $detailUrl(null, null, ['flow' => 'Приход']) }}" class="cell-link">{{ $fmt($totals['total_receipts'] ?? 0) }}</a></td>
                         @forelse($typeMeta as $meta)
-                            <td class="num">{{ $fmt($totals['types'][$meta['type']] ?? 0) }}</td>
+                            <td class="num"><a href="{{ $detailUrl(null, $meta['filter'] ?? null, ['flow' => 'Приход']) }}" class="cell-link">{{ $fmt($totals['types'][$meta['type']] ?? 0) }}</a></td>
                         @empty
                             <td class="num">0,0</td>
                         @endforelse
-                        <td class="num">{{ $fmt($totals['distributed_total'] ?? 0) }}</td>
-                        <td class="num">{{ $fmt($totals['jamgarma_share'] ?? 0) }}</td>
-                        <td class="num">{{ $fmt($totals['budget_share'] ?? 0) }}</td>
-                        <td class="num">{{ $fmt($totals['unallocated'] ?? 0) }}</td>
+                        <td class="num"><a href="{{ $detailUrl(null, null, []) }}" class="cell-link">{{ $fmt($totals['distributed_total'] ?? 0) }}</a></td>
+                        <td class="num"><a href="{{ $detailUrl(null, 'col_3430188', ['flow' => 'Приход']) }}" class="cell-link">{{ $fmt($totals['jamgarma_share'] ?? 0) }}</a></td>
+                        <td class="num"><a href="{{ $detailUrl(null, 'col_3430482', ['flow' => 'Приход']) }}" class="cell-link">{{ $fmt($totals['budget_share'] ?? 0) }}</a></td>
+                        <td class="num"><a href="{{ $detailUrl(null, null, ['flow' => 'Расход']) }}" class="cell-link">{{ $fmt($totals['unallocated'] ?? 0) }}</a></td>
                     </tr>
 
                     <tr class="incl-row">
@@ -247,17 +281,17 @@
 
                     @foreach($summaryRows as $row)
                         <tr>
-                            <td>{{ $row['district'] }}</td>
-                            <td class="num">{{ $fmt($row['total_receipts']) }}</td>
+                            <td><a href="{{ $detailUrl($row['district'], null, []) }}" class="cell-link district-link">{{ $row['district'] }}</a></td>
+                            <td class="num"><a href="{{ $detailUrl($row['district'], null, ['flow' => 'Приход']) }}" class="cell-link">{{ $fmt($row['total_receipts']) }}</a></td>
                             @forelse($typeMeta as $meta)
-                                <td class="num">{{ $fmt($row['types'][$meta['type']] ?? 0) }}</td>
+                                <td class="num"><a href="{{ $detailUrl($row['district'], $meta['filter'] ?? null, ['flow' => 'Приход']) }}" class="cell-link">{{ $fmt($row['types'][$meta['type']] ?? 0) }}</a></td>
                             @empty
                                 <td class="num">0,0</td>
                             @endforelse
-                            <td class="num">{{ $fmt($row['distributed_total']) }}</td>
-                            <td class="num">{{ $fmt($row['jamgarma_share']) }}</td>
-                            <td class="num">{{ $fmt($row['budget_share']) }}</td>
-                            <td class="num">{{ $fmt($row['unallocated']) }}</td>
+                            <td class="num"><a href="{{ $detailUrl($row['district'], null, []) }}" class="cell-link">{{ $fmt($row['distributed_total']) }}</a></td>
+                            <td class="num"><a href="{{ $detailUrl($row['district'], 'col_3430188', ['flow' => 'Приход']) }}" class="cell-link">{{ $fmt($row['jamgarma_share']) }}</a></td>
+                            <td class="num"><a href="{{ $detailUrl($row['district'], 'col_3430482', ['flow' => 'Приход']) }}" class="cell-link">{{ $fmt($row['budget_share']) }}</a></td>
+                            <td class="num"><a href="{{ $detailUrl($row['district'], null, ['flow' => 'Расход']) }}" class="cell-link">{{ $fmt($row['unallocated']) }}</a></td>
                         </tr>
                     @endforeach
                 @else

@@ -134,6 +134,22 @@
         font-size: 0.8rem;
     }
 
+    .cell-link {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px dashed transparent;
+        transition: color .12s ease, border-color .12s ease;
+    }
+
+    .cell-link:hover {
+        color: #016d69;
+        border-bottom-color: #016d69;
+    }
+
+    .district-link {
+        font-weight: 600;
+    }
+
     .print-btn {
         display: inline-flex;
         align-items: center;
@@ -165,7 +181,27 @@
 @endpush
 
 @section('content')
-@php($formatNumber = fn ($value) => number_format((float) $value, 2, '.', ' '))
+@php
+    $formatNumber = fn ($value) => number_format((float) $value, 2, '.', ' ');
+
+    $detailUrl = function (?string $district = null, ?string $svodFilter = null, array $extra = []) {
+        $query = array_merge([
+            'status' => 'jamgarma',
+            'sort' => 'amount',
+            'dir' => 'desc',
+        ], $extra);
+
+        if ($district !== null && $district !== '') {
+            $query['district'] = $district;
+        }
+
+        if ($svodFilter !== null && $svodFilter !== '') {
+            $query['svod_filter'] = $svodFilter;
+        }
+
+        return route('home', array_filter($query, static fn ($value) => $value !== null && $value !== ''));
+    };
+@endphp
 
 <div class="report-band">
     <div>
@@ -211,14 +247,14 @@
             </thead>
             <tbody>
                 <tr class="total-row">
-                    <td class="district-name">Жами</td>
-                    <td class="num">{{ $formatNumber($totals['total'] ?? 0) }}</td>
-                    <td class="num">{{ $formatNumber($totals['penalties_total'] ?? 0) }}</td>
-                    <td class="num">{{ $formatNumber($totals['safe_city_10'] ?? 0) }}</td>
-                    <td class="num">{{ $formatNumber($totals['automated_35'] ?? 0) }}</td>
-                    <td class="num">{{ $formatNumber($totals['fine_5_year'] ?? 0) }}</td>
-                    <td class="num">{{ $formatNumber($totals['fine_10_after'] ?? 0) }}</td>
-                    <td class="num">{{ $formatNumber($totals['reklama_20'] ?? 0) }}</td>
+                    <td class="district-name"><a href="{{ $detailUrl(null, null, []) }}" class="cell-link district-link">Жами</a></td>
+                    <td class="num"><a href="{{ $detailUrl(null, null, ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($totals['total'] ?? 0) }}</a></td>
+                    <td class="num"><a href="{{ $detailUrl(null, 'jam_penalties_total', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($totals['penalties_total'] ?? 0) }}</a></td>
+                    <td class="num"><a href="{{ $detailUrl(null, 'jam_safe_city_10', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($totals['safe_city_10'] ?? 0) }}</a></td>
+                    <td class="num"><a href="{{ $detailUrl(null, 'jam_automated_35', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($totals['automated_35'] ?? 0) }}</a></td>
+                    <td class="num"><a href="{{ $detailUrl(null, 'jam_fine_5_year', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($totals['fine_5_year'] ?? 0) }}</a></td>
+                    <td class="num"><a href="{{ $detailUrl(null, 'jam_fine_10_after', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($totals['fine_10_after'] ?? 0) }}</a></td>
+                    <td class="num"><a href="{{ $detailUrl(null, 'jam_reklama_20', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($totals['reklama_20'] ?? 0) }}</a></td>
                 </tr>
                 <tr class="incl-row">
                     <td colspan="8" style="padding: 6px 12px;">жумладан:</td>
@@ -226,14 +262,14 @@
 
                 @forelse(($rows ?? []) as $row)
                     <tr>
-                        <td class="district-name">{{ $row['district'] }}</td>
-                        <td class="num">{{ $formatNumber($row['total']) }}</td>
-                        <td class="num">{{ $formatNumber($row['penalties_total']) }}</td>
-                        <td class="num">{{ $formatNumber($row['safe_city_10']) }}</td>
-                        <td class="num">{{ $formatNumber($row['automated_35']) }}</td>
-                        <td class="num">{{ $formatNumber($row['fine_5_year']) }}</td>
-                        <td class="num">{{ $formatNumber($row['fine_10_after']) }}</td>
-                        <td class="num">{{ $formatNumber($row['reklama_20']) }}</td>
+                        <td class="district-name"><a href="{{ $detailUrl($row['district'], null, []) }}" class="cell-link district-link">{{ $row['district'] }}</a></td>
+                        <td class="num"><a href="{{ $detailUrl($row['district'], null, ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($row['total']) }}</a></td>
+                        <td class="num"><a href="{{ $detailUrl($row['district'], 'jam_penalties_total', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($row['penalties_total']) }}</a></td>
+                        <td class="num"><a href="{{ $detailUrl($row['district'], 'jam_safe_city_10', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($row['safe_city_10']) }}</a></td>
+                        <td class="num"><a href="{{ $detailUrl($row['district'], 'jam_automated_35', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($row['automated_35']) }}</a></td>
+                        <td class="num"><a href="{{ $detailUrl($row['district'], 'jam_fine_5_year', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($row['fine_5_year']) }}</a></td>
+                        <td class="num"><a href="{{ $detailUrl($row['district'], 'jam_fine_10_after', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($row['fine_10_after']) }}</a></td>
+                        <td class="num"><a href="{{ $detailUrl($row['district'], 'jam_reklama_20', ['flow' => 'Приход']) }}" class="cell-link">{{ $formatNumber($row['reklama_20']) }}</a></td>
                     </tr>
                 @empty
                     <tr>

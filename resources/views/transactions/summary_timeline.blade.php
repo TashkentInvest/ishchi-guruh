@@ -156,6 +156,18 @@
 		font-weight: 600;
 	}
 
+	.time-link {
+		color: inherit;
+		text-decoration: none;
+		border-bottom: 1px dashed transparent;
+		transition: color .12s ease, border-color .12s ease;
+	}
+
+	.time-link:hover {
+		color: #0f766e;
+		border-bottom-color: #0f766e;
+	}
+
 	.empty-note {
 		text-align: center;
 		color: #64748b;
@@ -203,6 +215,16 @@
 	$dayCount = count($dayColumns);
 
 	$allCount = 1 + $yearCount + $monthCount + $dayCount;
+
+	$timelineDetailUrl = function (array $periodFilters = [], array $rowFilters = []) use ($activeStatus) {
+		$query = array_merge([
+			'status' => $activeStatus,
+			'sort' => 'amount',
+			'dir' => 'desc',
+		], $periodFilters, $rowFilters);
+
+		return route('home', array_filter($query, static fn ($value) => $value !== null && $value !== ''));
+	};
 @endphp
 
 <div class="timeline-wrap">
@@ -230,17 +252,23 @@
 				</tr>
 				<tr>
 					@foreach($yearColumns as $column)
-						@php($yearKey = substr($column['key'], 2))
+						@php
+							$yearKey = substr($column['key'], 2);
+						@endphp
 						<th class="col-year year-toggle" data-year="{{ $yearKey }}" role="button" tabindex="0">{{ $column['label'] }}</th>
 					@endforeach
 
 					@foreach($monthColumns as $column)
-						@php($monthKey = substr($column['key'], 2))
+						@php
+							$monthKey = substr($column['key'], 2);
+						@endphp
 						<th class="col-month month-toggle" data-year="{{ substr($monthKey, 0, 4) }}" data-month="{{ $monthKey }}" role="button" tabindex="0">{{ $column['label'] }}</th>
 					@endforeach
 
 					@foreach($dayColumns as $column)
-						@php($dayDate = $column['date'])
+						@php
+							$dayDate = $column['date'];
+						@endphp
 						<th class="col-day day-toggle" data-year="{{ substr($dayDate, 0, 4) }}" data-month="{{ substr($dayDate, 0, 7) }}">{{ $column['label'] }}</th>
 					@endforeach
 				</tr>
@@ -253,21 +281,40 @@
 					</tr>
 
 					@foreach($mainRows as $row)
+						@php
+							$rowFilters = [];
+							if (!empty($row['flow'])) {
+								$rowFilters['flow'] = $row['flow'];
+							}
+
+							if (!empty($row['type'])) {
+								$rowFilters['type'] = $row['type'];
+							}
+						@endphp
 						<tr class="{{ !empty($row['is_total']) ? 'total-row' : '' }}">
 							<td class="sticky-left {{ empty($row['is_total']) ? 'type-row' : '' }}">{{ $row['label'] }}</td>
 
 							@foreach($yearColumns as $column)
-								<td class="num col-year">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
+								@php
+									$yearValue = (int) substr($column['key'], 2);
+								@endphp
+								<td class="num col-year"><a href="{{ $timelineDetailUrl(['year' => $yearValue], $rowFilters) }}" class="time-link">{{ $fmt($row['values'][$column['key']] ?? 0) }}</a></td>
 							@endforeach
 
 							@foreach($monthColumns as $column)
-								@php($monthKey = substr($column['key'], 2))
-								<td class="num col-month" data-year="{{ substr($monthKey, 0, 4) }}" data-month="{{ $monthKey }}">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
+								@php
+									$monthKey = substr($column['key'], 2);
+									$monthYear = (int) substr($monthKey, 0, 4);
+									$monthNumber = (int) substr($monthKey, 5, 2);
+								@endphp
+								<td class="num col-month" data-year="{{ substr($monthKey, 0, 4) }}" data-month="{{ $monthKey }}"><a href="{{ $timelineDetailUrl(['year' => $monthYear, 'month' => $monthNumber], $rowFilters) }}" class="time-link">{{ $fmt($row['values'][$column['key']] ?? 0) }}</a></td>
 							@endforeach
 
 							@foreach($dayColumns as $column)
-								@php($dayDate = $column['date'])
-								<td class="num col-day" data-year="{{ substr($dayDate, 0, 4) }}" data-month="{{ substr($dayDate, 0, 7) }}" data-day="{{ $dayDate }}">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
+								@php
+									$dayDate = $column['date'];
+								@endphp
+								<td class="num col-day" data-year="{{ substr($dayDate, 0, 4) }}" data-month="{{ substr($dayDate, 0, 7) }}" data-day="{{ $dayDate }}"><a href="{{ $timelineDetailUrl(['date_from' => $dayDate, 'date_to' => $dayDate], $rowFilters) }}" class="time-link">{{ $fmt($row['values'][$column['key']] ?? 0) }}</a></td>
 							@endforeach
 						</tr>
 					@endforeach
@@ -278,21 +325,44 @@
 					</tr>
 
 					@foreach($allocationRows as $row)
+						@php
+							$rowFilters = [];
+							if (!empty($row['flow'])) {
+								$rowFilters['flow'] = $row['flow'];
+							}
+
+							if (!empty($row['type'])) {
+								$rowFilters['type'] = $row['type'];
+							}
+
+							if (!empty($row['svod_filter'])) {
+								$rowFilters['svod_filter'] = $row['svod_filter'];
+							}
+						@endphp
 						<tr class="{{ $loop->first ? 'total-row' : '' }}">
 							<td class="sticky-left alloc-row">{{ $row['label'] }}</td>
 
 							@foreach($yearColumns as $column)
-								<td class="num col-year">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
+								@php
+									$yearValue = (int) substr($column['key'], 2);
+								@endphp
+								<td class="num col-year"><a href="{{ $timelineDetailUrl(['year' => $yearValue], $rowFilters) }}" class="time-link">{{ $fmt($row['values'][$column['key']] ?? 0) }}</a></td>
 							@endforeach
 
 							@foreach($monthColumns as $column)
-								@php($monthKey = substr($column['key'], 2))
-								<td class="num col-month" data-year="{{ substr($monthKey, 0, 4) }}" data-month="{{ $monthKey }}">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
+								@php
+									$monthKey = substr($column['key'], 2);
+									$monthYear = (int) substr($monthKey, 0, 4);
+									$monthNumber = (int) substr($monthKey, 5, 2);
+								@endphp
+								<td class="num col-month" data-year="{{ substr($monthKey, 0, 4) }}" data-month="{{ $monthKey }}"><a href="{{ $timelineDetailUrl(['year' => $monthYear, 'month' => $monthNumber], $rowFilters) }}" class="time-link">{{ $fmt($row['values'][$column['key']] ?? 0) }}</a></td>
 							@endforeach
 
 							@foreach($dayColumns as $column)
-								@php($dayDate = $column['date'])
-								<td class="num col-day" data-year="{{ substr($dayDate, 0, 4) }}" data-month="{{ substr($dayDate, 0, 7) }}" data-day="{{ $dayDate }}">{{ $fmt($row['values'][$column['key']] ?? 0) }}</td>
+								@php
+									$dayDate = $column['date'];
+								@endphp
+								<td class="num col-day" data-year="{{ substr($dayDate, 0, 4) }}" data-month="{{ substr($dayDate, 0, 7) }}" data-day="{{ $dayDate }}"><a href="{{ $timelineDetailUrl(['date_from' => $dayDate, 'date_to' => $dayDate], $rowFilters) }}" class="time-link">{{ $fmt($row['values'][$column['key']] ?? 0) }}</a></td>
 							@endforeach
 						</tr>
 					@endforeach

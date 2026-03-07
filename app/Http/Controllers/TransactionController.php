@@ -34,9 +34,22 @@ class TransactionController extends Controller
         if ($request->filled('district'))  { $where[] = 'district = ?';        $params[] = $request->district; }
         if ($request->filled('year'))      { $where[] = 'year = ?';             $params[] = $request->year; }
         if ($request->filled('month'))     { $where[] = 'month = ?';            $params[] = $request->month; }
+        if (in_array((string) $request->query('flow', ''), ['Приход', 'Расход'], true)) {
+            $where[] = 'flow = ?';
+            $params[] = $request->query('flow');
+        }
         if ($request->filled('type'))      { $where[] = 'type = ?';             $params[] = $request->type; }
         if ($request->filled('date_from')) { $where[] = 'date >= ?';            $params[] = $request->date_from; }
         if ($request->filled('date_to'))   { $where[] = 'date <= ?';            $params[] = $request->date_to; }
+
+        $svodFilter = trim((string) $request->query('svod_filter', ''));
+        if ($svodFilter !== '') {
+            $svodCondition = $this->resolveSvodFilterCondition($svodFilter);
+            if ($svodCondition !== null) {
+                $where[] = '(' . $svodCondition['sql'] . ')';
+                $params = array_merge($params, $svodCondition['bindings']);
+            }
+        }
 
         if ($request->filled('search')) {
             $q = '%' . $request->search . '%';
@@ -109,6 +122,8 @@ class TransactionController extends Controller
             $query = "SELECT
                     SUM(CASE WHEN flow='Приход' THEN amount ELSE 0 END) as total_credit,
                     SUM(CASE WHEN flow='Расход' THEN amount ELSE 0 END) as total_debit,
+                    SUM(CASE WHEN flow='Приход' THEN 1 ELSE 0 END) as credit_records,
+                    SUM(CASE WHEN flow='Расход' THEN 1 ELSE 0 END) as debit_records,
                     COUNT(*) as total_records
                  FROM transactions";
             $queryParams = [];
@@ -130,6 +145,7 @@ class TransactionController extends Controller
             'years'        => $filters['years'],
             'months'       => $filters['months'],
             'types'        => $filters['types'],
+            'svodFilters'  => $this->svodFilterOptions(),
             'summary'      => $summary,
             'activeStatus' => $status,
         ]);
@@ -630,6 +646,7 @@ class TransactionController extends Controller
                     'type' => $column['type'],
                     'code' => $column['code'],
                     'label' => $column['label'],
+                    'filter' => $column['bucket'],
                 ];
             }, $fixedTypeColumns);
 
@@ -845,6 +862,8 @@ class TransactionController extends Controller
             $mainRows[] = [
                 'label' => 'ЖАМИ',
                 'is_total' => true,
+                'flow' => 'Приход',
+                'type' => null,
                 'values' => $buildPeriodValues($receiptByDay),
             ];
 
@@ -852,6 +871,8 @@ class TransactionController extends Controller
                 $mainRows[] = [
                     'label' => ($index + 1) . '  ' . $type,
                     'is_total' => false,
+                    'flow' => 'Приход',
+                    'type' => $type,
                     'values' => $buildPeriodValues($typeByDay[$type] ?? []),
                 ];
             }
@@ -874,14 +895,23 @@ class TransactionController extends Controller
             $allocationRows = [
                 [
                     'label' => 'ЖАМИ',
+                    'flow' => null,
+                    'type' => null,
+                    'svod_filter' => null,
                     'values' => $buildPeriodValues($distributedByDay),
                 ],
                 [
                     'label' => '1  Отчисление 60.0 %',
+                    'flow' => 'Приход',
+                    'type' => null,
+                    'svod_filter' => 'col_3430188',
                     'values' => $buildPeriodValues($jamgarmaShareByDay),
                 ],
                 [
                     'label' => '2  Отчисление 40.0 %',
+                    'flow' => 'Приход',
+                    'type' => null,
+                    'svod_filter' => 'col_3430482',
                     'values' => $buildPeriodValues($budgetShareByDay),
                 ],
             ];
@@ -1149,6 +1179,139 @@ class TransactionController extends Controller
         }
 
         return null;
+    }
+
+    private function svodFilterOptions(): array
+    {
+        return [
+            'col_3430188' => 'Gazna · Жарима 5% (1 йил ичида) 3430188',
+            'col_3430482' => 'Gazna · Жарима 5% (1 йил ичида) 3430482',
+            'col_3430481' => 'Gazna · Жарима 5% (1 йил ичида) 3430481',
+            'col_326700' => 'Gazna · Жарима 10% (1 йилдан кейин) 326700',
+            'col_3430417' => 'Gazna · Жарима 10% (хавфсиз шаҳар)',
+            'col_3430189' => 'Gazna · Жарима 10% (1 йилдан кейин)',
+            'col_3430465' => 'Gazna · Жарима 15% (1 йил ичида)',
+            'col_3422292' => 'Gazna · Ойна тусини ўзгартириш 20%',
+            'col_3430135' => 'Gazna · Жарима 35% (автоматлаштирилган)',
+            'jam_penalties_total' => 'Jamgarma · Йўл ҳаракати жарималари (жами)',
+            'jam_safe_city_10' => 'Jamgarma · Жарима 10% (хавфсиз шаҳар)',
+            'jam_automated_35' => 'Jamgarma · Жарима 35% (автоматлаштирилган)',
+            'jam_fine_5_year' => 'Jamgarma · Жарима 5% (1 йил ичида)',
+            'jam_fine_10_after' => 'Jamgarma · Жарима 10% (1 йилдан кейин)',
+            'jam_reklama_20' => 'Jamgarma · Реклама/қорайтириш 20%',
+        ];
+    }
+
+    private function resolveSvodFilterCondition(string $filter): ?array
+    {
+        return match ($filter) {
+            'col_3430188',
+            'col_3430482',
+            'col_3430481',
+            'col_326700',
+            'col_3430417',
+            'col_3430189',
+            'col_3430465',
+            'col_3422292',
+            'col_3430135' => [
+                'sql' => '(' . $this->gaznaSvodBucketCaseSql() . ') = ?',
+                'bindings' => [$filter],
+            ],
+            'jam_penalties_total' => $this->buildSvodTypeCondition([
+                '3430417',
+                '3430135',
+                '3430188',
+                '3430482',
+                '3430481',
+                '3430189',
+                '326700',
+            ], [
+                ['хавфсиз', '10'],
+                ['автомат', '35'],
+                ['1 йил ичида', '5'],
+                ['1 йилдан кейин', '10'],
+            ]),
+            'jam_safe_city_10' => $this->buildSvodTypeCondition(['3430417'], [
+                ['хавфсиз', '10'],
+            ]),
+            'jam_automated_35' => $this->buildSvodTypeCondition(['3430135'], [
+                ['автомат', '35'],
+            ]),
+            'jam_fine_5_year' => $this->buildSvodTypeCondition(['3430188', '3430482', '3430481'], [
+                ['1 йил ичида', '5'],
+            ]),
+            'jam_fine_10_after' => $this->buildSvodTypeCondition(['3430189', '326700'], [
+                ['1 йилдан кейин', '10'],
+            ]),
+            'jam_reklama_20' => $this->buildSvodTypeCondition(['3422292'], [
+                ['қорайтириш'],
+                ['реклама', '20'],
+            ]),
+            default => null,
+        };
+    }
+
+    private function gaznaSvodBucketCaseSql(): string
+    {
+        return "
+            CASE
+                WHEN type = '3430188' OR type LIKE '%3430188%' THEN 'col_3430188'
+                WHEN type = '3430482' OR type LIKE '%3430482%' THEN 'col_3430482'
+                WHEN type = '3430481' OR type LIKE '%3430481%' THEN 'col_3430481'
+                WHEN type = '326700' OR type LIKE '%326700%' THEN 'col_326700'
+                WHEN type = '3430135' OR type LIKE '%3430135%' THEN 'col_3430135'
+                WHEN type = '3430417' OR type LIKE '%3430417%' THEN 'col_3430417'
+                WHEN type = '3430465' OR type LIKE '%3430465%' THEN 'col_3430465'
+                WHEN type = '3430189' OR type LIKE '%3430189%' THEN 'col_3430189'
+                WHEN type = '3422292' OR type LIKE '%3422292%' THEN 'col_3422292'
+                WHEN (LOWER(type) LIKE '%қорайтириш%' OR (LOWER(type) LIKE '%реклама%' AND LOWER(type) LIKE '%20%')) THEN 'col_3422292'
+                WHEN (LOWER(type) LIKE '%автомат%' AND LOWER(type) LIKE '%35%') THEN 'col_3430135'
+                WHEN (LOWER(type) LIKE '%хавфсиз%' AND LOWER(type) LIKE '%10%') THEN 'col_3430417'
+                WHEN (LOWER(type) LIKE '%1 йил ичида%' AND LOWER(type) LIKE '%15%') THEN 'col_3430465'
+                WHEN (LOWER(type) LIKE '%1 йилдан кейин%' AND LOWER(type) LIKE '%10%') THEN 'col_3430189'
+                WHEN (LOWER(type) LIKE '%1 йил ичида%' AND LOWER(type) LIKE '%5%') THEN 'col_3430188'
+                ELSE NULL
+            END
+        ";
+    }
+
+    private function buildSvodTypeCondition(array $codes = [], array $likeGroups = []): array
+    {
+        $parts = [];
+        $bindings = [];
+
+        foreach (array_values(array_unique($codes)) as $code) {
+            $parts[] = '(type = ? OR type LIKE ?)';
+            $bindings[] = $code;
+            $bindings[] = '%' . $code . '%';
+        }
+
+        foreach ($likeGroups as $group) {
+            $tokens = array_values(array_filter(array_map(static fn ($token) => trim((string) $token), $group), static fn ($token) => $token !== ''));
+            if (empty($tokens)) {
+                continue;
+            }
+
+            $tokenParts = [];
+            foreach ($tokens as $token) {
+                $tokenParts[] = 'LOWER(type) LIKE ?';
+                $bindings[] = '%' . mb_strtolower($token) . '%';
+            }
+
+            $parts[] = '(' . implode(' AND ', $tokenParts) . ')';
+        }
+
+        if (empty($parts)) {
+            return [
+                'sql' => '1 = 0',
+                'bindings' => [],
+            ];
+        }
+
+        return [
+            'sql' => implode(' OR ', $parts),
+            'bindings' => $bindings,
+        ];
     }
 
     private function buildSvodMatrixData(?string $status): array

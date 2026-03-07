@@ -186,6 +186,18 @@
         color: #fff;
     }
 
+    .dash-link {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px dashed transparent;
+        transition: color .12s ease, border-color .12s ease;
+    }
+
+    .dash-link:hover {
+        color: #016d69;
+        border-bottom-color: #016d69;
+    }
+
 </style>
 @endpush
 
@@ -218,6 +230,24 @@
     $selectedDistrict = $selectedDistrict ?? null;
     $selectedYear = $selectedYear ?? null;
     $selectedMonth = $selectedMonth ?? null;
+
+    $thisMonthStart = now()->startOfMonth()->toDateString();
+    $thisMonthEnd = now()->endOfMonth()->toDateString();
+    $lastMonthStart = now()->subMonth()->startOfMonth()->toDateString();
+    $lastMonthEnd = now()->subMonth()->endOfMonth()->toDateString();
+
+    $detailUrl = function (array $extra = []) use ($activeStatus, $selectedDistrict, $selectedYear, $selectedMonth) {
+        $query = array_merge([
+            'status' => $activeStatus,
+            'district' => $selectedDistrict,
+            'year' => $selectedYear,
+            'month' => $selectedMonth,
+            'sort' => 'amount',
+            'dir' => 'desc',
+        ], $extra);
+
+        return route('home', array_filter($query, static fn ($value) => $value !== null && $value !== ''));
+    };
 @endphp
 
 <form id="filterForm" method="GET" action="{{ route('dashboard') }}">
@@ -270,27 +300,27 @@
 <div class="stats-row">
     <div class="stat-card teal">
         <div class="sc-label">Жами Кредит (Приход)</div>
-        <div class="sc-value">{{ number_format($totalCredit / 1000000, 1, '.', ' ') }} млн</div>
+        <div class="sc-value"><a href="{{ $detailUrl(['flow' => 'Приход']) }}" class="dash-link">{{ number_format($totalCredit / 1000000, 1, '.', ' ') }} млн</a></div>
         <div class="sc-sub">сўм</div>
     </div>
     <div class="stat-card blue">
         <div class="sc-label">Жами Дебет (Расход)</div>
-        <div class="sc-value">{{ number_format($totalDebit / 1000000, 1, '.', ' ') }} млн</div>
+        <div class="sc-value"><a href="{{ $detailUrl(['flow' => 'Расход']) }}" class="dash-link">{{ number_format($totalDebit / 1000000, 1, '.', ' ') }} млн</a></div>
         <div class="sc-sub">сўм</div>
     </div>
     <div class="stat-card green">
         <div class="sc-label">Жами Йозувлар</div>
-        <div class="sc-value">{{ number_format($totalRecords) }}</div>
+        <div class="sc-value"><a href="{{ $detailUrl() }}" class="dash-link">{{ number_format($totalRecords) }}</a></div>
         <div class="sc-sub">{{ $uDistricts }} туман · {{ $uTypes }} тур</div>
     </div>
     <div class="stat-card orange">
         <div class="sc-label">{{ $lastMonthLabel }} (Ўтган ой)</div>
-        <div class="sc-value">{{ number_format($lmCredit / 1000000, 1, '.', ' ') }} млн</div>
+        <div class="sc-value"><a href="{{ $detailUrl(['flow' => 'Приход', 'date_from' => $lastMonthStart, 'date_to' => $lastMonthEnd]) }}" class="dash-link">{{ number_format($lmCredit / 1000000, 1, '.', ' ') }} млн</a></div>
         <div class="sc-sub">{{ number_format($lmRecords) }} та йозув</div>
     </div>
     <div class="stat-card {{ $deltaUp ? 'teal' : 'red' }}">
         <div class="sc-label">{{ $thisMonthLabel }} (Жорий ой)</div>
-        <div class="sc-value">{{ number_format($tmCredit / 1000000, 1, '.', ' ') }} млн</div>
+        <div class="sc-value"><a href="{{ $detailUrl(['flow' => 'Приход', 'date_from' => $thisMonthStart, 'date_to' => $thisMonthEnd]) }}" class="dash-link">{{ number_format($tmCredit / 1000000, 1, '.', ' ') }} млн</a></div>
         <span class="sc-delta {{ $deltaUp ? 'delta-up' : 'delta-down' }}">
             {{ $deltaUp ? '▲' : '▼' }} {{ number_format(abs($delta), 1) }}%
             ўтган ойга нисбатан
@@ -319,12 +349,16 @@
                 </thead>
                 <tbody>
                     @forelse($monthlyStats as $stat)
+                        @php
+                            $monthStart = sprintf('%04d-%02d-01', (int) $stat->year, (int) $stat->month_num);
+                            $monthEnd = \Carbon\Carbon::parse($monthStart)->endOfMonth()->toDateString();
+                        @endphp
                         <tr>
-                            <td><span class="month-badge">{{ $stat->year }}</span></td>
-                            <td class="name">{{ $stat->month }}</td>
-                            <td class="num">{{ number_format($stat->total_credit / 1000000, 2, '.', ' ') }} млн</td>
-                            <td class="num">{{ number_format($stat->total_debit / 1000000, 2, '.', ' ') }} млн</td>
-                            <td class="cnt">{{ number_format($stat->count) }}</td>
+                            <td><a href="{{ $detailUrl(['date_from' => $monthStart, 'date_to' => $monthEnd]) }}" class="dash-link"><span class="month-badge">{{ $stat->year }}</span></a></td>
+                            <td class="name"><a href="{{ $detailUrl(['date_from' => $monthStart, 'date_to' => $monthEnd]) }}" class="dash-link">{{ $stat->month }}</a></td>
+                            <td class="num"><a href="{{ $detailUrl(['date_from' => $monthStart, 'date_to' => $monthEnd, 'flow' => 'Приход']) }}" class="dash-link">{{ number_format($stat->total_credit / 1000000, 2, '.', ' ') }} млн</a></td>
+                            <td class="num"><a href="{{ $detailUrl(['date_from' => $monthStart, 'date_to' => $monthEnd, 'flow' => 'Расход']) }}" class="dash-link">{{ number_format($stat->total_debit / 1000000, 2, '.', ' ') }} млн</a></td>
+                            <td class="cnt"><a href="{{ $detailUrl(['date_from' => $monthStart, 'date_to' => $monthEnd]) }}" class="dash-link">{{ number_format($stat->count) }}</a></td>
                         </tr>
                     @empty
                         <tr><td colspan="5" style="text-align:center;padding:30px;color:#aab0bb;">Маълумот йўқ</td></tr>
@@ -354,11 +388,11 @@
                         @php $pct = $maxDistrict > 0 ? ($stat->total_credit / $maxDistrict * 100) : 0; @endphp
                         <tr>
                             <td class="name">
-                                {{ $stat->district }}
+                                <a href="{{ $detailUrl(['district' => $stat->district]) }}" class="dash-link">{{ $stat->district }}</a>
                                 <div class="bar-wrap"><div class="bar-fill" style="width:{{ $pct }}%"></div></div>
                             </td>
-                            <td class="num">{{ number_format($stat->total_credit / 1000000, 1, '.', ' ') }} млн</td>
-                            <td class="cnt">{{ number_format($stat->count) }}</td>
+                            <td class="num"><a href="{{ $detailUrl(['district' => $stat->district, 'flow' => 'Приход']) }}" class="dash-link">{{ number_format($stat->total_credit / 1000000, 1, '.', ' ') }} млн</a></td>
+                            <td class="cnt"><a href="{{ $detailUrl(['district' => $stat->district]) }}" class="dash-link">{{ number_format($stat->count) }}</a></td>
                         </tr>
                     @empty
                         <tr><td colspan="3" style="text-align:center;padding:30px;color:#aab0bb;">Маълумот йўқ</td></tr>
@@ -390,10 +424,10 @@
                 @forelse($typeStats as $stat)
                     @php $pct = $maxType > 0 ? ($stat->total_credit / $maxType * 100) : 0; @endphp
                     <tr>
-                        <td class="name">{{ $stat->type ?? '—' }}</td>
-                        <td class="num">{{ number_format($stat->total_credit / 1000000, 2, '.', ' ') }} млн</td>
-                        <td class="num">{{ number_format($stat->total_debit / 1000000, 2, '.', ' ') }} млн</td>
-                        <td class="cnt">{{ number_format($stat->count) }}</td>
+                        <td class="name"><a href="{{ $detailUrl(['type' => $stat->type]) }}" class="dash-link">{{ $stat->type ?? '—' }}</a></td>
+                        <td class="num"><a href="{{ $detailUrl(['type' => $stat->type, 'flow' => 'Приход']) }}" class="dash-link">{{ number_format($stat->total_credit / 1000000, 2, '.', ' ') }} млн</a></td>
+                        <td class="num"><a href="{{ $detailUrl(['type' => $stat->type, 'flow' => 'Расход']) }}" class="dash-link">{{ number_format($stat->total_debit / 1000000, 2, '.', ' ') }} млн</a></td>
+                        <td class="cnt"><a href="{{ $detailUrl(['type' => $stat->type]) }}" class="dash-link">{{ number_format($stat->count) }}</a></td>
                         <td>
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <div class="bar-wrap" style="flex:1;">
